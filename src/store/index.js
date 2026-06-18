@@ -5,7 +5,7 @@ import notificationReducer from './slices/notificationSlice';
 import companyReducer from './slices/companySlice';
 import vendorReducer from './slices/vendorSlice';
 
-const CACHE_KEY = 'pms_cache_v3';
+const CACHE_KEY = 'pms_cache_v4';
 
 const loadState = () => {
   try {
@@ -54,6 +54,6 @@ store.subscribe(() => {
 
 // Expose a helper to clear the cache (useful from browser console: window.resetAppData())
 window.resetAppData = () => {
-  localStorage.removeItem(CACHE_KEY);
+  ['pms_cache_v1','pms_cache_v2','pms_cache_v3','pms_cache_v4'].forEach(k => localStorage.removeItem(k));
   window.location.reload();
 };

@@ -41,7 +41,7 @@ const initialVendors = [
     updatedDate: '2024-02-20',
   },
   {
-    id: 3,
+    id: 4,
     vendorName: 'Patel Enterprises',
     gstNumber: 'GST29PATEL9012Q3Z7',
     email: 'patel@enterprises.com',
@@ -49,12 +49,12 @@ const initialVendors = [
     responsibility: 'Mechanical Parts',
     contactPerson: 'Suresh Patel',
     vendorLocation: 'Ahmedabad, Gujarat',
-    status: 'Inactive',
+    status: 'Active',
     createdDate: '2024-02-01',
     updatedDate: '2024-03-15',
   },
   {
-    id: 4,
+    id: 9,
     vendorName: 'Singh Steel Works',
     gstNumber: 'GST03SINGH4567L1X3',
     email: 'singh@steelworks.com',

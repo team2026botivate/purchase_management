@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import {
@@ -61,6 +61,21 @@ export default function GeneratePOForm({ open, onClose, viewRecord }) {
 
   const { replace } = useFieldArray({ control, name: 'items' });
   const isViewMode  = !!viewRecord;
+
+  // Only show vendors that have at least one pending purchaseOrder indent
+  const pendingPartyNames = useMemo(() => {
+    const names = new Set(
+      allRecords
+        .filter(r => r.workflowStage?.purchaseOrder === 'Pending')
+        .map(r => r.partyName)
+    );
+    return names;
+  }, [allRecords]);
+
+  const availableVendors = useMemo(
+    () => vendors.filter(v => pendingPartyNames.has(v.vendorName)),
+    [vendors, pendingPartyNames]
+  );
 
   // ── View mode: pre-fill from frozen poDetails ──────────────────────────
   useEffect(() => {
@@ -280,8 +295,10 @@ export default function GeneratePOForm({ open, onClose, viewRecord }) {
                       SelectProps={{ disableUnderline: true, style: { fontSize: '0.75rem', fontWeight: 600, color: '#1976d2' } }}
                       sx={{ flex: 1, '& .MuiSelect-select': { p: 0 } }}
                     >
-                      <MenuItem value="" disabled>Select Supplier...</MenuItem>
-                      {vendors.map(v => <MenuItem key={v.id} value={v.id}>{v.vendorName}</MenuItem>)}
+                      <MenuItem value="" disabled>
+                        {availableVendors.length === 0 ? 'No pending indents' : 'Select Supplier...'}
+                      </MenuItem>
+                      {availableVendors.map(v => <MenuItem key={v.id} value={v.id}>{v.vendorName}</MenuItem>)}
                     </TextField>
                   )} />
                 )}

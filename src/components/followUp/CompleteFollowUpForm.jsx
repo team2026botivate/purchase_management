@@ -1,59 +1,31 @@
 import { useForm, Controller } from 'react-hook-form';
-import { useDispatch } from 'react-redux';
+import { useDispatch }         from 'react-redux';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, MenuItem, Box, Divider, Typography
+  Button, TextField, MenuItem, Box, Typography
 } from '@mui/material';
 import PhoneCallbackIcon from '@mui/icons-material/PhoneCallback';
 import { completeStage, updateRecord } from '../../store/slices/workflowSlice';
 import { toast } from 'react-toastify';
 
-/* ── Shared INPUT_SX matches the pattern used across all app forms ── */
-const INPUT_SX = {
-  width: '100%',
-  '& .MuiInputBase-root': { width: '100%' },
-  '& .MuiSelect-select': {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-};
-
-/* ── CSS-grid row helper — same as IndentManagementPage ── */
-const GridRow = ({ cols = [1], children, sx = {} }) => (
-  <Box
-    sx={{
-      display: 'grid',
-      gridTemplateColumns: {
-        xs: '1fr',
-        sm: cols.map(() => '1fr').join(' '),
-      },
-      gap: 2,
-      mb: 2,
-      '& > *': { minWidth: 0 },
-      ...sx,
-    }}
-  >
+const SectionLabel = ({ children }) => (
+  <Typography variant="caption" fontWeight={700} color="text.secondary"
+    sx={{ textTransform: 'uppercase', letterSpacing: '0.08em', mb: 1.5, display: 'block' }}>
     {children}
-  </Box>
+  </Typography>
 );
 
-export default function CompleteFollowUpForm({ open, onClose, selectedRow }) {
+// groupIds = all record IDs that belong to this PO group
+export default function CompleteFollowUpForm({ open, onClose, selectedRow, groupIds }) {
   const dispatch = useDispatch();
 
-  const {
-    control,
-    handleSubmit,
-    watch,
-    register,
-    formState: { errors },
-  } = useForm({
+  const { control, handleSubmit, watch, register, formState: { errors } } = useForm({
     defaultValues: {
-      followUpStatus: '',
-      followUpBy: '',
-      expectedArrivalDate: '',
-      nextFollowDate: '',
-      remarks: '',
+      followUpStatus:       '',
+      followUpBy:           '',
+      expectedArrivalDate:  '',
+      nextFollowDate:       '',
+      remarks:              '',
     },
   });
 
@@ -61,151 +33,120 @@ export default function CompleteFollowUpForm({ open, onClose, selectedRow }) {
 
   const onSubmit = (data) => {
     if (!selectedRow) return;
-
-    dispatch(updateRecord({ id: selectedRow.id, followUpDetails: data }));
+    const ids = groupIds?.length ? groupIds : [selectedRow.id];
 
     if (data.followUpStatus === 'Arrange Logistics') {
-      dispatch(completeStage({ id: selectedRow.id, currentStage: 'followUp', nextStageOverride: 'logistics' }));
-      toast.success('Follow-up completed! Record moved to Arrange Logistics.');
+      ids.forEach(id => {
+        dispatch(updateRecord({ id, followUpDetails: data, followUpType: 'logistics' }));
+        dispatch(completeStage({ id, currentStage: 'followUp', nextStageOverride: 'logistics' }));
+      });
+      toast.success(`Follow-up done! ${ids.length} item(s) moved to Arrange Logistics.`);
       onClose();
+
     } else if (data.followUpStatus === 'Direct Receiving') {
-      dispatch(completeStage({ id: selectedRow.id, currentStage: 'followUp', nextStageOverride: 'receiveMaterial' }));
-      toast.success('Follow-up completed! Record moved to Receive Material.');
+      ids.forEach(id => {
+        dispatch(updateRecord({ id, followUpDetails: data, followUpType: 'directReceiving' }));
+        dispatch(completeStage({ id, currentStage: 'followUp', nextStageOverride: 'logistics' }));
+      });
+      toast.success(`Follow-up done! ${ids.length} item(s) moved to Logistics (Direct Receiving).`);
       onClose();
-    } else if (data.followUpStatus === 'Next Follow Up') {
-      toast.success('Next Follow-up scheduled. Record remains in Pending.');
+
+    } else if (data.followUpStatus === 'Further Follow Up') {
+      ids.forEach(id => dispatch(updateRecord({ id, followUpDetails: data })));
+      toast.success('Further follow-up scheduled. Record remains Pending.');
+      onClose();
+
+    } else if (data.followUpStatus === 'Cancel') {
+      ids.forEach(id => dispatch(updateRecord({ id, followUpDetails: data, status: 'Cancelled' })));
+      toast.info('Follow-up cancelled.');
       onClose();
     }
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{ sx: { borderRadius: 2 } }}
-    >
-      <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 700 }}>
-        <Box
-          sx={{
-            width: 36, height: 36, borderRadius: 2,
-            bgcolor: 'primary.50',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}
-        >
-          <PhoneCallbackIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+    <Dialog open={open} onClose={onClose} maxWidth={false}
+      PaperProps={{ sx: { borderRadius: 3, width: '750px', maxWidth: '96vw', maxHeight: '92vh' } }}>
+
+      <DialogTitle sx={{ px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 38, height: 38, borderRadius: 2, bgcolor: 'primary.50', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <PhoneCallbackIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+          </Box>
+          <Box>
+            <Typography variant="subtitle1" fontWeight={700} lineHeight={1.2}>Complete Follow-Up</Typography>
+            {selectedRow && (
+              <Typography variant="caption" color="text.secondary">
+                {selectedRow.poNumber} · {selectedRow.partyName}
+                {(groupIds?.length || 0) > 1 ? ` · ${groupIds.length} items` : ''}
+              </Typography>
+            )}
+          </Box>
         </Box>
-        Complete Follow-Up
       </DialogTitle>
 
-      <Divider />
+      <Box component="form" id="followup-form" onSubmit={handleSubmit(onSubmit)}>
+        <DialogContent sx={{ px: 3, py: 2.5, overflowY: 'auto' }}>
+          <SectionLabel>Follow Up Information</SectionLabel>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <DialogContent sx={{ pt: 2.5, pb: 1 }}>
+            <Box>
+              <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 0.5 }}>
+                Follow Up Status <span style={{ color: 'red' }}>*</span>
+              </Typography>
+              <Controller name="followUpStatus" control={control} rules={{ required: 'Required' }}
+                render={({ field }) => (
+                  <TextField {...field} select fullWidth error={!!errors.followUpStatus} helperText={errors.followUpStatus?.message}>
+                    <MenuItem value="Arrange Logistics">Arrange Logistics</MenuItem>
+                    <MenuItem value="Direct Receiving">Direct Receiving</MenuItem>
+                    <MenuItem value="Further Follow Up">Further Follow Up</MenuItem>
+                    <MenuItem value="Cancel">Cancel</MenuItem>
+                  </TextField>
+                )} />
+            </Box>
 
-          {/* ── Row 1: Follow Up Status (full width) ── */}
-          <GridRow cols={[1]} sx={{ mb: followUpStatus ? 2 : 0 }}>
-            <Controller
-              name="followUpStatus"
-              control={control}
-              rules={{ required: 'Follow Up Status is required' }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  fullWidth
-                  size="small"
-                  label="Follow Up Status *"
-                  sx={INPUT_SX}
-                  error={!!errors.followUpStatus}
-                  helperText={errors.followUpStatus?.message}
-                >
-                  <MenuItem value="Arrange Logistics">Arrange Logistics</MenuItem>
-                  <MenuItem value="Direct Receiving">Direct Receiving</MenuItem>
-                  <MenuItem value="Next Follow Up">Next Follow Up</MenuItem>
-                </TextField>
-              )}
-            />
-          </GridRow>
+            {followUpStatus && followUpStatus !== 'Cancel' && (
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.5 }}>
+                <Box>
+                  <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 0.5 }}>
+                    Follow Up By <span style={{ color: 'red' }}>*</span>
+                  </Typography>
+                  <TextField fullWidth
+                    {...register('followUpBy', { required: 'Required' })}
+                    error={!!errors.followUpBy} helperText={errors.followUpBy?.message} />
+                </Box>
+                {followUpStatus === 'Arrange Logistics' && (
+                  <Box>
+                    <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 0.5 }}>
+                      Expected Arrival Date <span style={{ color: 'red' }}>*</span>
+                    </Typography>
+                    <TextField fullWidth type="date"
+                      {...register('expectedArrivalDate', { required: 'Required' })}
+                      error={!!errors.expectedArrivalDate} helperText={errors.expectedArrivalDate?.message} />
+                  </Box>
+                )}
+              </Box>
+            )}
 
-          {/* ── Dynamic fields — only shown once a status is selected ── */}
-          {followUpStatus && (
-            <>
-              {/* Follow Up By — always shown */}
-              <GridRow cols={[1]}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Follow Up By *"
-                  sx={INPUT_SX}
-                  {...register('followUpBy', { required: 'Follow Up By is required' })}
-                  error={!!errors.followUpBy}
-                  helperText={errors.followUpBy?.message}
-                />
-              </GridRow>
-
-              {/* Expected Arrival Date — Arrange Logistics only */}
-              {followUpStatus === 'Arrange Logistics' && (
-                <GridRow cols={[1]}>
-                  <TextField
-                    fullWidth
-                    type="date"
-                    size="small"
-                    label="Expected Arrival Date *"
-                    sx={INPUT_SX}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    {...register('expectedArrivalDate', { required: 'Expected Arrival Date is required' })}
-                    error={!!errors.expectedArrivalDate}
-                    helperText={errors.expectedArrivalDate?.message}
-                  />
-                </GridRow>
-              )}
-
-              {/* Next Follow Date — Direct Receiving only */}
-              {followUpStatus === 'Direct Receiving' && (
-                <GridRow cols={[1]}>
-                  <TextField
-                    fullWidth
-                    type="date"
-                    size="small"
-                    label="Next Follow Date *"
-                    sx={INPUT_SX}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    {...register('nextFollowDate', { required: 'Next Follow Date is required' })}
-                    error={!!errors.nextFollowDate}
-                    helperText={errors.nextFollowDate?.message}
-                  />
-                </GridRow>
-              )}
-
-              {/* Remarks — always shown once status is selected */}
-              <GridRow cols={[1]} sx={{ mb: 0 }}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  size="small"
-                  label="Remarks *"
-                  sx={INPUT_SX}
+            {followUpStatus && (
+              <Box>
+                <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 0.5 }}>
+                  Remarks <span style={{ color: 'red' }}>*</span>
+                </Typography>
+                <TextField fullWidth multiline rows={3}
                   {...register('remarks', { required: 'Remarks are required' })}
-                  error={!!errors.remarks}
-                  helperText={errors.remarks?.message}
-                />
-              </GridRow>
-            </>
-          )}
+                  error={!!errors.remarks} helperText={errors.remarks?.message} />
+              </Box>
+            )}
+          </Box>
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-          <Button onClick={onClose} variant="outlined" color="inherit">
-            Cancel
-          </Button>
-          <Button type="submit" variant="contained" color="primary">
+        <DialogActions sx={{ px: 3, py: 2, borderTop: 1, borderColor: 'divider', gap: 1 }}>
+          <Button onClick={onClose} variant="outlined" color="inherit" sx={{ minWidth: 110, height: 38 }}>Cancel</Button>
+          <Button type="submit" form="followup-form" variant="contained" color="primary" sx={{ minWidth: 150, height: 38 }}>
             Submit Follow-Up
           </Button>
         </DialogActions>
-      </form>
+      </Box>
     </Dialog>
   );
 }

@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Box, TextField, MenuItem, Button, Stack, Typography } from '@mui/material';
+import {
+  Box, TextField, MenuItem, IconButton, Tooltip, InputAdornment, Divider, useTheme,
+} from '@mui/material';
+import SearchIcon       from '@mui/icons-material/Search';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 
 export const defaultFilters = {
@@ -12,27 +15,33 @@ export const defaultFilters = {
   dateTo:       '',
 };
 
-const FIELD_SX = {
-  width: '100%',
-  '& .MuiInputBase-root': { width: '100%' },
-  '& .MuiSelect-select': {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+/* ── Shared input sx ── */
+const INPUT_SX = {
+  '& .MuiOutlinedInput-root': {
+    height: 38,
+    borderRadius: '8px',
+    fontSize: '0.8rem',
+    bgcolor: 'background.paper',
+  },
+  '& .MuiOutlinedInput-input': {
+    py: 0,
     fontSize: '0.8rem',
   },
-  '& .MuiInputBase-input': {
-    fontSize: '0.8rem',
-  }
+  '& .MuiInputLabel-root': {
+    fontSize: '0.78rem',
+    top: '-1px',
+  },
+  '& .MuiInputLabel-shrink': {
+    top: 0,
+  },
 };
 
 export default function WorkflowFilters({ appliedFilters, onApply, onReset }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [filters, setFilters] = useState(defaultFilters);
 
-  // Sync state when reset
-  useEffect(() => {
-    setFilters(appliedFilters);
-  }, [appliedFilters]);
+  useEffect(() => { setFilters(appliedFilters); }, [appliedFilters]);
 
   const fi = (key) => (e) => {
     const newFilters = { ...filters, [key]: e.target.value };
@@ -42,51 +51,110 @@ export default function WorkflowFilters({ appliedFilters, onApply, onReset }) {
 
   const handleReset = () => { setFilters(defaultFilters); onReset(); };
 
+  const hasActiveFilter = Object.values(filters).some(Boolean);
+
   return (
-    <Box sx={{ mb: 1.5 }}>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems="center">
-        
-        <TextField
-          select size="small" label="Status" sx={{ ...FIELD_SX, minWidth: 150 }}
-          value={filters.status} onChange={fi('status')}
-        >
-          <MenuItem value="">All Statuses</MenuItem>
-          <MenuItem value="Pending Approval">Pending Approval</MenuItem>
-          <MenuItem value="In Progress">In Progress</MenuItem>
-          <MenuItem value="Fully Completed">Fully Completed</MenuItem>
-        </TextField>
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        flexWrap: 'wrap',
+        px: 2,
+        py: 1.25,
+        mb: 1,
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: '12px',
+        bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#fafafa',
+      }}
+    >
+      {/* ── Search ── */}
+      <TextField
+        size="small"
+        placeholder="Search records..."
+        value={filters.indentNumber}
+        onChange={fi('indentNumber')}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon sx={{ fontSize: 15, color: 'text.disabled' }} />
+            </InputAdornment>
+          ),
+        }}
+        sx={{ ...INPUT_SX, width: 220 }}
+      />
 
-        <TextField
-          size="small" type="date" label="From Date" sx={{ ...FIELD_SX, minWidth: 150 }}
-          value={filters.dateFrom} onChange={fi('dateFrom')}
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        <TextField
-          size="small" type="date" label="To Date" sx={{ ...FIELD_SX, minWidth: 150 }}
-          value={filters.dateTo} onChange={fi('dateTo')}
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
+      {/* ── Status ── */}
+      <TextField
+        select size="small" label="Status"
+        value={filters.status} onChange={fi('status')}
+        sx={{ ...INPUT_SX, width: 145 }}
+      >
+        <MenuItem value="">All</MenuItem>
+        <MenuItem value="Pending Approval">Pending Approval</MenuItem>
+        <MenuItem value="In Progress">In Progress</MenuItem>
+        <MenuItem value="Fully Completed">Fully Completed</MenuItem>
+      </TextField>
 
-        <TextField
-          size="small" label="Supplier / Party" sx={{ ...FIELD_SX, minWidth: 150 }}
-          value={filters.partyName} onChange={fi('partyName')}
-        />
+      {/* ── From Date ── */}
+      <TextField
+        size="small" type="date" label="From"
+        value={filters.dateFrom} onChange={fi('dateFrom')}
+        slotProps={{ inputLabel: { shrink: true } }}
+        sx={{ ...INPUT_SX, width: 148 }}
+      />
 
-        <TextField
-          size="small" label="Company" sx={{ ...FIELD_SX, minWidth: 150 }}
-          value={filters.companyName} onChange={fi('companyName')}
-        />
+      {/* ── To Date ── */}
+      <TextField
+        size="small" type="date" label="To"
+        value={filters.dateTo} onChange={fi('dateTo')}
+        slotProps={{ inputLabel: { shrink: true } }}
+        sx={{ ...INPUT_SX, width: 148 }}
+      />
 
-        <Button
-          variant="outlined" size="small" color="inherit"
-          startIcon={<FilterAltOffIcon sx={{ fontSize: 15 }} />}
+      {/* ── Supplier ── */}
+      <TextField
+        size="small" label="Supplier"
+        value={filters.partyName} onChange={fi('partyName')}
+        sx={{ ...INPUT_SX, width: 140 }}
+      />
+
+      {/* ── Company ── */}
+      <TextField
+        size="small" label="Company"
+        value={filters.companyName} onChange={fi('companyName')}
+        sx={{ ...INPUT_SX, width: 140 }}
+      />
+
+      {/* ── Reset ── */}
+      <Tooltip title="Reset Filters" arrow>
+        <IconButton
+          size="small"
           onClick={handleReset}
-          sx={{ height: 40, whiteSpace: 'nowrap' }}
+          sx={{
+            width: 34,
+            height: 34,
+            borderRadius: '8px',
+            border: 1,
+            borderColor: hasActiveFilter ? 'error.300' : 'divider',
+            color: hasActiveFilter ? 'error.main' : 'text.secondary',
+            bgcolor: hasActiveFilter
+              ? (isDark ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.06)')
+              : 'transparent',
+            '&:hover': {
+              bgcolor: 'rgba(239,68,68,0.1)',
+              borderColor: 'error.main',
+              color: 'error.main',
+            },
+            transition: 'all 0.2s ease',
+          }}
         >
-          Reset
-        </Button>
-      </Stack>
+          <FilterAltOffIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+      </Tooltip>
     </Box>
   );
 }

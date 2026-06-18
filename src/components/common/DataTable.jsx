@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TableSortLabel, TablePagination, Paper, IconButton, Tooltip, Chip,
@@ -58,13 +58,14 @@ function ToolBtn({ title, onClick, children, color }) {
         size="small"
         onClick={onClick}
         sx={{
-          width: 32,
-          height: 32,
-          borderRadius: 1.5,
+          width: 30,
+          height: 30,
+          borderRadius: '8px',
           color: color || 'text.secondary',
           border: 1,
           borderColor: 'divider',
-          '&:hover': { bgcolor: 'action.hover', borderColor: 'text.disabled', transform: 'scale(1.05)' },
+          '&:hover': { bgcolor: 'action.hover', borderColor: 'text.disabled' },
+          transition: 'all 0.15s ease',
         }}
       >
         {children}
@@ -93,6 +94,16 @@ export default function DataTable({
   const [search, setSearch]         = useState('');
   const [visibleCols, setVisibleCols] = useState(() => new Set(columns.map((c) => c.key)));
   const [colMenuAnchor, setColMenuAnchor] = useState(null);
+  const prevColKeysRef = useRef(columns.map((c) => c.key).join(','));
+
+  // Re-sync visible columns when the columns prop changes (e.g. tab switch)
+  useEffect(() => {
+    const newKeys = columns.map((c) => c.key).join(',');
+    if (newKeys !== prevColKeysRef.current) {
+      prevColKeysRef.current = newKeys;
+      setVisibleCols(new Set(columns.map((c) => c.key)));
+    }
+  }, [columns]);
 
   /* ── filtering + sorting ── */
   const filtered = useMemo(() => {
@@ -146,17 +157,27 @@ export default function DataTable({
       <Box
         sx={{
           px: 2,
-          py: 1.25,
+          py: 1,
           display: 'flex',
           alignItems: 'center',
-          gap: 1.5,
+          gap: 1,
           flexWrap: 'wrap',
           borderBottom: 1,
           borderColor: 'divider',
-          bgcolor: isDark ? 'rgba(241,245,249,.02)' : 'rgba(15,23,42,.01)',
-          minHeight: 56,
+          bgcolor: isDark ? 'rgba(241,245,249,.02)' : '#fafafa',
+          minHeight: 50,
         }}
       >
+        {/* Title + Count */}
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mr: 1 }}>
+          <Typography variant="body2" fontWeight={700} color="text.primary" sx={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+            {title}
+          </Typography>
+          <Typography variant="caption" color="text.disabled" fontWeight={500}>
+            ({filtered.length})
+          </Typography>
+        </Box>
+
         {/* Search */}
         <TextField
           size="small"
@@ -166,52 +187,36 @@ export default function DataTable({
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
+                <SearchIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
               </InputAdornment>
             ),
           }}
           sx={{
-            minWidth: { xs: '100%', sm: 240 },
-            '& .MuiOutlinedInput-root': { height: 36, fontSize: '0.875rem' },
+            width: { xs: '100%', sm: 200 },
+            '& .MuiOutlinedInput-root': { height: 34, borderRadius: '8px', fontSize: '0.8rem' },
+            '& .MuiOutlinedInput-input': { py: 0 },
           }}
         />
 
         {/* spacer */}
         <Box sx={{ flex: 1 }} />
 
-        {/* Count */}
-        <Typography variant="caption" color="text.secondary" fontWeight={500} sx={{ whiteSpace: 'nowrap' }}>
-          {filtered.length} records
-        </Typography>
-
         {/* Tool buttons */}
-        <Stack direction="row" spacing={0.5}>
-          <ToolBtn
-            title="Export Excel"
-            color="#059669"
-            onClick={() => exportToExcel(filtered, exportCols, title)}
-          >
-            <FileDownloadIcon sx={{ fontSize: 16 }} />
-          </ToolBtn>
-          <ToolBtn
-            title="Export PDF"
-            color="#dc2626"
-            onClick={() => exportToPDF(filtered, exportCols, title, title)}
-          >
-            <PictureAsPdfIcon sx={{ fontSize: 16 }} />
-          </ToolBtn>
-          <ToolBtn
-            title="Print"
-            onClick={() => printTable(filtered, exportCols, title)}
-          >
-            <PrintIcon sx={{ fontSize: 16 }} />
-          </ToolBtn>
-          <ToolBtn
-            title="Toggle columns"
-            onClick={(e) => setColMenuAnchor(e.currentTarget)}
-          >
-            <ViewColumnIcon sx={{ fontSize: 16 }} />
-          </ToolBtn>
+        <Stack direction="row" spacing={0.5} divider={<Box sx={{ width: 1, bgcolor: 'divider', alignSelf: 'stretch' }} />}>
+          <Stack direction="row" spacing={0.5}>
+            <ToolBtn title="Export Excel" color="#059669" onClick={() => exportToExcel(filtered, exportCols, title)}>
+              <FileDownloadIcon sx={{ fontSize: 15 }} />
+            </ToolBtn>
+            <ToolBtn title="Export PDF" color="#dc2626" onClick={() => exportToPDF(filtered, exportCols, title, title)}>
+              <PictureAsPdfIcon sx={{ fontSize: 15 }} />
+            </ToolBtn>
+            <ToolBtn title="Print" onClick={() => printTable(filtered, exportCols, title)}>
+              <PrintIcon sx={{ fontSize: 15 }} />
+            </ToolBtn>
+            <ToolBtn title="Toggle columns" onClick={(e) => setColMenuAnchor(e.currentTarget)}>
+              <ViewColumnIcon sx={{ fontSize: 15 }} />
+            </ToolBtn>
+          </Stack>
         </Stack>
       </Box>
 
@@ -264,13 +269,32 @@ export default function DataTable({
                 sx={{
                   width: 48,
                   minWidth: 48,
+                  maxWidth: 48,
                   py: '10px',
                   px: 2,
-                  zIndex: 3,
+                  position: 'sticky',
+                  left: 0,
+                  bgcolor: isDark ? 'grey.900' : 'grey.100',
+                  zIndex: 5,
                 }}
               >
                 #
               </TableCell>
+
+              {actions && (
+                <TableCell
+                  align="center"
+                  sx={{ 
+                    width: 140, minWidth: 140, maxWidth: 140, py: '10px', px: 2, 
+                    position: 'sticky', left: 48, 
+                    bgcolor: isDark ? 'grey.900' : 'grey.100', 
+                    zIndex: 4,
+                    boxShadow: '2px 0 5px rgba(0,0,0,0.05)'
+                  }}
+                >
+                  Actions
+                </TableCell>
+              )}
 
               {visibleColumns.map((col) => (
                 <TableCell
@@ -300,21 +324,6 @@ export default function DataTable({
                   )}
                 </TableCell>
               ))}
-
-              {actions && (
-                <TableCell
-                  align="center"
-                  sx={{ 
-                    width: 120, minWidth: 120, py: '10px', px: 2, 
-                    position: 'sticky', right: 0, 
-                    bgcolor: isDark ? 'grey.900' : 'grey.100', 
-                    zIndex: 4,
-                    boxShadow: '-2px 0 5px rgba(0,0,0,0.05)'
-                  }}
-                >
-                  Actions
-                </TableCell>
-              )}
             </TableRow>
           </TableHead>
 
@@ -364,10 +373,34 @@ export default function DataTable({
                       fontSize: '0.75rem',
                       fontWeight: 500,
                       width: 48,
+                      minWidth: 48,
+                      maxWidth: 48,
+                      position: 'sticky',
+                      left: 0,
+                      bgcolor: isDark ? '#1e293b' : '#fff',
+                      zIndex: 3,
                     }}
                   >
                     {page * rowsPerPage + idx + 1}
                   </TableCell>
+
+                  {actions && (
+                    <TableCell 
+                      align="center" 
+                      sx={{ 
+                        py: rowPy, px: 1.5,
+                        width: 140, minWidth: 140, maxWidth: 140,
+                        position: 'sticky', left: 48,
+                        bgcolor: isDark ? '#1e293b' : '#fff',
+                        zIndex: 2,
+                        boxShadow: '2px 0 5px rgba(0,0,0,0.02)'
+                      }}
+                    >
+                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center', alignItems: 'center' }}>
+                        {actions(row)}
+                      </Stack>
+                    </TableCell>
+                  )}
 
                   {visibleColumns.map((col) => (
                     <TableCell
@@ -401,23 +434,6 @@ export default function DataTable({
                       )}
                     </TableCell>
                   ))}
-
-                  {actions && (
-                    <TableCell 
-                      align="center" 
-                      sx={{ 
-                        py: rowPy, px: 1.5,
-                        position: 'sticky', right: 0,
-                        bgcolor: isDark ? '#1e293b' : '#fff', // Match row bg or use solid color
-                        zIndex: 2,
-                        boxShadow: '-2px 0 5px rgba(0,0,0,0.02)'
-                      }}
-                    >
-                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center', alignItems: 'center' }}>
-                        {actions(row)}
-                      </Stack>
-                    </TableCell>
-                  )}
                 </TableRow>
               ))}
           </TableBody>

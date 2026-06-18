@@ -3,8 +3,16 @@ import mockData from '../data/mockData';
 
 const AuthContext = createContext(null);
 
-const ADMIN_PAGES = ['dashboard', 'indent', 'purchaseOrder', 'followUp', 'logistics', 'lifting', 'receiveMaterial', 'liftReceiver', 'tallyEntry', 'userManagement', 'settings', 'reports', 'master', 'vendors'];
-const USER_PAGES  = ['dashboard', 'indent', 'purchaseOrder', 'followUp', 'logistics', 'lifting', 'receiveMaterial', 'liftReceiver', 'tallyEntry', 'master', 'vendors'];
+const ADMIN_PAGES = [
+  'dashboard', 'indent', 'whatsapp', 'purchaseOrder', 'followUp', 'logistics',
+  'lifting', 'receiveMaterial', 'liftReceiver', 'tallyEntry',
+  'userManagement', 'settings', 'reports', 'master', 'vendors',
+];
+const USER_PAGES = [
+  'dashboard', 'indent', 'whatsapp', 'purchaseOrder', 'followUp', 'logistics',
+  'lifting', 'receiveMaterial', 'liftReceiver', 'tallyEntry',
+  'master', 'vendors',
+];
 
 
 export function AuthProvider({ children }) {

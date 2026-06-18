@@ -25,6 +25,7 @@ import HandshakeIcon        from '@mui/icons-material/Handshake';
 import FactCheckIcon        from '@mui/icons-material/FactCheck';
 import SendIcon             from '@mui/icons-material/Send';
 import VerifiedIcon         from '@mui/icons-material/Verified';
+import WhatsAppIcon         from '@mui/icons-material/WhatsApp';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const DRAWER_WIDTH = 264;
@@ -37,17 +38,10 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    key: 'masters',
-    label: 'Masters',
-    items: [
-      { label: 'Company Master',         icon: ApartmentIcon,  path: '/master',   page: 'master' },
-      { label: 'Vendor / Supplier',      icon: HandshakeIcon,  path: '/vendors',  page: 'vendors' },
-    ],
-  },
-  {
     key: 'purchase',
     label: 'Purchase Process',
     items: [
+      { label: 'WhatsApp Form',                  icon: WhatsAppIcon,      path: '/whatsapp-form',    page: 'whatsapp' },
       { label: 'Indent Management',              icon: DescriptionIcon,   path: '/indent',           page: 'indent' },
       { label: 'Generate Purchase PO',           icon: ShoppingCartIcon,  path: '/purchase-order',   page: 'purchaseOrder' },
       { label: 'Approval Purchase PO',           icon: FactCheckIcon,     path: '/approval-po',      page: 'purchaseOrder' },
@@ -60,17 +54,20 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    key: 'masters',
+    label: 'Masters',
+    items: [
+      { label: 'Company Master',         icon: ApartmentIcon,  path: '/master',   page: 'master' },
+      { label: 'Product Data',           icon: BusinessCenterIcon, path: '/product-data', page: 'master' },
+      { label: 'Vendor / Supplier',      icon: HandshakeIcon,  path: '/vendors',  page: 'vendors' },
+    ],
+  },
+  {
     key: 'admin',
     label: 'Administration',
     items: [
       { label: 'User Management', icon: PeopleIcon,   path: '/users',    page: 'userManagement' },
       { label: 'Settings',        icon: SettingsIcon, path: '/settings', page: 'settings' },
-    ],
-  },
-  {
-    key: 'analytics',
-    items: [
-      { label: 'Reports', icon: AssessmentIcon, path: '/reports', page: 'reports' },
     ],
   },
 ];
@@ -82,32 +79,43 @@ function NavSection({ section }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
+  const [isOpen, setIsOpen] = useState(true);
+
   const accessible = section.items.filter((i) => !i.page || hasAccess(i.page));
   if (accessible.length === 0) return null;
 
   return (
     <Box sx={{ mb: 0.5 }}>
       {section.label && (
-        <Typography
-          variant="caption"
+        <ListItemButton
+          onClick={() => setIsOpen(!isOpen)}
           sx={{
-            display: 'block',
+            py: 1.5,
             px: 2.5,
-            pt: 1.5,
-            pb: 0.5,
-            fontWeight: 700,
-            fontSize: '0.6875rem',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'text.disabled',
+            minHeight: 36,
+            '&:hover': { bgcolor: 'transparent' },
           }}
         >
-          {section.label}
-        </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              flex: 1,
+              fontWeight: 700,
+              fontSize: '0.6875rem',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'text.disabled',
+            }}
+          >
+            {section.label}
+          </Typography>
+          {isOpen ? <ExpandLessIcon sx={{ fontSize: 16, color: 'text.disabled' }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: 'text.disabled' }} />}
+        </ListItemButton>
       )}
-      <List disablePadding sx={{ px: 1.5 }}>
-        {accessible.map((item) => {
-          const isActive = location.pathname === item.path ||
+      <Collapse in={!section.label || isOpen} timeout="auto" unmountOnExit>
+        <List disablePadding sx={{ px: 1.5 }}>
+          {accessible.map((item) => {
+            const isActive = location.pathname === item.path ||
             (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
           return (
             <ListItemButton
@@ -169,7 +177,8 @@ function NavSection({ section }) {
             </ListItemButton>
           );
         })}
-      </List>
+        </List>
+      </Collapse>
     </Box>
   );
 }

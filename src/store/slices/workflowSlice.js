@@ -24,23 +24,8 @@ const workflowSlice = createSlice({
   initialState,
   reducers: {
     addRecord: (state, action) => {
-      // New indent added
-      const newRecord = {
-        ...action.payload,
-        id: state.records.length + 1,
-        workflowStage: {
-          indent: 'Pending',
-          purchaseOrder: null,
-          approvalPO: null,
-          sendPO: null,
-          followUp: null,
-          logistics: null,
-          receiveMaterial: null,
-          liftReceiver: null,
-          tallyEntry: null,
-        }
-      };
-      state.records.push(newRecord);
+      // Push the record exactly as supplied by the caller (id and workflowStage are set there)
+      state.records.push(action.payload);
     },
     updateRecord: (state, action) => {
       // General update (used in Indent Management primarily)

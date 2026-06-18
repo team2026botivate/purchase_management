@@ -170,10 +170,10 @@ export default function DashboardPage() {
       </Grid>
 
       {/* ── Charts Row 1 ── */}
-      <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 2.5, mb: 2.5, width: '100%' }}>
         
         {/* Status pie */}
-        <Grid item xs={12} md={4}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           <Card sx={{ height: '100%' }}>
             <CardHeader
               title={<Typography variant="h6" fontWeight={700}>Indent Status</Typography>}
@@ -181,13 +181,13 @@ export default function DashboardPage() {
               sx={{ pb: 0 }}
             />
             <CardContent sx={{ pt: 2 }}>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
                     data={statusDist}
-                    cx="50%" cy="45%"
-                    innerRadius={60}
-                    outerRadius={95}
+                    cx="50%" cy="50%"
+                    innerRadius="55%"
+                    outerRadius="80%"
                     paddingAngle={3}
                     dataKey="value"
                   >
@@ -217,10 +217,10 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* POs by Company */}
-        <Grid item xs={12} md={4}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           <Card sx={{ height: '100%' }}>
             <CardHeader
               title={<Typography variant="h6" fontWeight={700}>POs by Company</Typography>}
@@ -228,7 +228,7 @@ export default function DashboardPage() {
               sx={{ pb: 0 }}
             />
             <CardContent sx={{ pt: 2 }}>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={companyDist} margin={{ top: 0, right: 4, bottom: 0, left: -16 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} />
@@ -241,10 +241,10 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Monthly Amount */}
-        <Grid item xs={12} md={4}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           <Card sx={{ height: '100%' }}>
             <CardHeader
               title={<Typography variant="h6" fontWeight={700}>Monthly Amount (₹K)</Typography>}
@@ -252,7 +252,7 @@ export default function DashboardPage() {
               sx={{ pb: 0 }}
             />
             <CardContent sx={{ pt: 2 }}>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={monthlyTrend} margin={{ top: 0, right: 4, bottom: 0, left: -16 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} />
@@ -263,9 +263,9 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
-      </Grid>
+      </Box>
 
       {/* ── Recent tables ── */}
       <Grid container spacing={2.5}>

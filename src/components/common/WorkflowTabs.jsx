@@ -1,11 +1,14 @@
 import React from 'react';
 import { Tabs, Tab, Box } from '@mui/material';
 
-export default function WorkflowTabs({ tabValue, onChange }) {
+export default function WorkflowTabs({ tabValue, onChange, pendingCount, historyCount }) {
+  const pendingLabel = pendingCount !== undefined ? `Pending (${pendingCount})` : 'Pending';
+  const historyLabel = historyCount !== undefined ? `History (${historyCount})` : 'History';
+
   return (
-    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5, mt: 1.5 }}>
-      <Tabs 
-        value={tabValue} 
+    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1, mt: 0.5 }}>
+      <Tabs
+        value={tabValue}
         onChange={(_, newValue) => onChange(newValue)}
         aria-label="workflow tabs"
         sx={{
@@ -21,8 +24,8 @@ export default function WorkflowTabs({ tabValue, onChange }) {
           },
         }}
       >
-        <Tab label="Pending" />
-        <Tab label="History" />
+        <Tab label={pendingLabel} />
+        <Tab label={historyLabel} />
       </Tabs>
     </Box>
   );

@@ -1,99 +1,84 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector }  from 'react-redux';
 import { Box, Button } from '@mui/material';
-import { ViewBtn, PrintBtn } from '../../components/common/ActionButtons';
-import { toast } from 'react-toastify';
-import { completeStage } from '../../store/slices/workflowSlice';
-import WorkflowTable, { WORKFLOW_COLUMNS } from '../../components/common/WorkflowTable';
+import { ViewBtn }     from '../../components/common/ActionButtons';
+import DataTable              from '../../components/common/DataTable';
 import WorkflowFilters, { defaultFilters } from '../../components/common/WorkflowFilters';
-import WorkflowTabs from '../../components/common/WorkflowTabs';
-import PageHeader from '../../components/common/PageHeader';
-import { printTable } from '../../utils/exportUtils';
-
-import CompleteFollowUpForm from '../../components/followUp/CompleteFollowUpForm';
+import WorkflowTabs           from '../../components/common/WorkflowTabs';
+import PageHeader             from '../../components/common/PageHeader';
+import CompleteFollowUpForm   from '../../components/followUp/CompleteFollowUpForm';
+import { groupByPO, PO_COLUMNS } from '../../utils/poGroupUtils';
 
 export default function FollowUpPage() {
-  const dispatch = useDispatch();
   const records = useSelector((s) => s.workflow.records);
-  const [tabValue, setTabValue] = useState(0); // 0: Pending, 1: History
-  const [formOpen, setFormOpen] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
-  
+
+  const [tabValue,       setTabValue]       = useState(0);
+  const [formOpen,       setFormOpen]       = useState(false);
+  const [selectedRow,    setSelectedRow]    = useState(null);
   const [appliedFilters, setAppliedFilters] = useState(defaultFilters);
 
   const stageRecords = useMemo(() => {
-    if (tabValue === 0) {
-      return records.filter(r => r.workflowStage.followUp === 'Pending');
-    } else {
-      return records.filter(r => r.workflowStage.followUp === 'Completed');
-    }
+    const recs = tabValue === 0
+      ? records.filter(r => r.workflowStage.followUp === 'Pending')
+      : records.filter(r => r.workflowStage.followUp === 'Completed');
+    return groupByPO(recs);
   }, [records, tabValue]);
 
-  const filtered = useMemo(() => stageRecords.filter((i) => {
-    const f = appliedFilters;
-    return (
-      (!f.indentNumber || i.indentNumber.toLowerCase().includes(f.indentNumber.toLowerCase())) &&
-      (!f.itemName || i.itemName.toLowerCase().includes(f.itemName.toLowerCase())) &&
-      (!f.partyName || i.partyName.toLowerCase().includes(f.partyName.toLowerCase())) &&
-      (!f.companyName || i.companyName.toLowerCase().includes(f.companyName.toLowerCase())) &&
-      (!f.status || i.status === f.status) &&
-      (!f.dateFrom || i.createdDate >= f.dateFrom) &&
-      (!f.dateTo || i.createdDate <= f.dateTo)
-    );
-  }), [stageRecords, appliedFilters]);
+  const pendingCount = useMemo(() => groupByPO(records.filter(r => r.workflowStage.followUp === 'Pending')).length, [records]);
+  const historyCount = useMemo(() => groupByPO(records.filter(r => r.workflowStage.followUp === 'Completed')).length, [records]);
 
-  const handleOpenForm = (row) => {
-    setSelectedRow(row);
-    setFormOpen(true);
-  };
+  const filtered = useMemo(() =>
+    stageRecords.filter((i) => {
+      const f = appliedFilters;
+      return (
+        (!f.partyName   || i.partyName.toLowerCase().includes(f.partyName.toLowerCase()))     &&
+        (!f.companyName || i.companyName.toLowerCase().includes(f.companyName.toLowerCase())) &&
+        (!f.status      || i.status === f.status)                                             &&
+        (!f.dateFrom    || i.createdDate >= f.dateFrom)                                       &&
+        (!f.dateTo      || i.createdDate <= f.dateTo)
+      );
+    }), [stageRecords, appliedFilters]);
 
-  const handleCloseForm = () => {
-    setFormOpen(false);
-    setSelectedRow(null);
-  };
+  const handleOpenForm  = (row) => { setSelectedRow(row); setFormOpen(true); };
+  const handleCloseForm = ()    => { setFormOpen(false); setSelectedRow(null); };
 
   const actions = useCallback((row) => {
     if (tabValue === 0) {
       return [
-        <Button key="complete" size="small" variant="contained" color="success" onClick={() => handleOpenForm(row)} sx={{ minWidth: '130px', fontSize: '0.7rem' }}>
+        <Button key="complete" size="small" variant="contained" color="success"
+          onClick={() => handleOpenForm(row)} sx={{ minWidth: '145px', fontSize: '0.7rem' }}>
           Complete Follow-Up
         </Button>
       ];
-    } else {
-      return [
-        <ViewBtn key="view" onClick={() => {}} />,
-        <PrintBtn key="print" onClick={() => printTable([row], WORKFLOW_COLUMNS.map((c) => ({ key: c.key, header: c.label })), `Follow-Up for ${row.indentNumber}`)} />
-      ];
     }
-  }, [tabValue, dispatch]);
+    return [<ViewBtn key="view" onClick={() => {}} />];
+  }, [tabValue]);
 
   return (
     <Box>
       <PageHeader
         title="Follow-Up"
-        subtitle={`${filtered.length} records found`}
+        subtitle={`${filtered.length} PO(s) found`}
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Follow-Up' }]}
       />
+      <WorkflowTabs tabValue={tabValue} onChange={setTabValue} pendingCount={pendingCount} historyCount={historyCount} />
+      <WorkflowFilters appliedFilters={appliedFilters} onApply={setAppliedFilters} onReset={() => setAppliedFilters(defaultFilters)} />
 
-      <WorkflowTabs tabValue={tabValue} onChange={setTabValue} />
-      
-      <WorkflowFilters 
-        appliedFilters={appliedFilters}
-        onApply={setAppliedFilters}
-        onReset={() => setAppliedFilters(defaultFilters)}
-      />
-
-      <WorkflowTable 
-        rows={filtered} 
-        title={tabValue === 0 ? "Pending Follow-Ups" : "Follow-Up History"} 
-        actions={actions} 
+      <DataTable
+        columns={PO_COLUMNS}
+        rows={filtered}
+        title={tabValue === 0 ? 'Pending Follow-Ups' : 'Follow-Up History'}
+        searchKey={['poNumber', 'partyName', 'companyName']}
+        actions={actions}
+        density="compact"
       />
 
       {formOpen && (
-        <CompleteFollowUpForm 
-          open={formOpen} 
-          onClose={handleCloseForm} 
-          selectedRow={selectedRow} 
+        <CompleteFollowUpForm
+          open={formOpen}
+          onClose={handleCloseForm}
+          selectedRow={selectedRow}
+          groupIds={selectedRow?._groupIds}
         />
       )}
     </Box>

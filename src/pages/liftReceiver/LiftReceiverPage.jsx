@@ -1,84 +1,109 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { Box, Button } from '@mui/material';
-import { ViewBtn, PrintBtn } from '../../components/common/ActionButtons';
-import { toast } from 'react-toastify';
-import { completeStage } from '../../store/slices/workflowSlice';
-import WorkflowTable, { WORKFLOW_COLUMNS } from '../../components/common/WorkflowTable';
+import { useSelector }                     from 'react-redux';
+import { Box, Button, Link }               from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import OpenInNewIcon   from '@mui/icons-material/OpenInNew';
+import { ViewBtn }     from '../../components/common/ActionButtons';
+import DataTable              from '../../components/common/DataTable';
 import WorkflowFilters, { defaultFilters } from '../../components/common/WorkflowFilters';
-import WorkflowTabs from '../../components/common/WorkflowTabs';
-import PageHeader from '../../components/common/PageHeader';
-import { printTable } from '../../utils/exportUtils';
+import WorkflowTabs           from '../../components/common/WorkflowTabs';
+import PageHeader             from '../../components/common/PageHeader';
+import LiftReceiverForm       from '../../components/liftReceiver/LiftReceiverForm';
+import GeneratePOForm         from '../../components/po/GeneratePOForm';
+import { groupByPO, PO_COLUMNS } from '../../utils/poGroupUtils';
+
+const getHistoryCols = (onViewPO) => [
+  ...PO_COLUMNS,
+  {
+    key: 'poViewLink',
+    label: 'PO Document',
+    minWidth: 120,
+    render: (_v, row) => row.poNumber ? (
+      <Link component="button" onClick={() => onViewPO(row)} underline="hover"
+        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: '0.78rem', color: 'primary.main', fontWeight: 600 }}>
+        <OpenInNewIcon sx={{ fontSize: 13 }} /> View PO
+      </Link>
+    ) : '—',
+  },
+];
 
 export default function LiftReceiverPage() {
-  const dispatch = useDispatch();
   const records = useSelector((s) => s.workflow.records);
-  const [tabValue, setTabValue] = useState(0); // 0: Pending, 1: History
-  
+
+  const [tabValue,      setTabValue]      = useState(0);
   const [appliedFilters, setAppliedFilters] = useState(defaultFilters);
+  const [receiverOpen,  setReceiverOpen]  = useState(false);
+  const [selectedRow,   setSelectedRow]   = useState(null);
+  const [poViewOpen,    setPoViewOpen]    = useState(false);
+  const [poViewRecord,  setPoViewRecord]  = useState(null);
 
   const stageRecords = useMemo(() => {
-    if (tabValue === 0) {
-      return records.filter(r => r.workflowStage.liftReceiver === 'Pending');
-    } else {
-      return records.filter(r => r.workflowStage.liftReceiver === 'Completed');
-    }
+    const recs = tabValue === 0
+      ? records.filter(r => r.workflowStage.liftReceiver === 'Pending')
+      : records.filter(r => r.workflowStage.liftReceiver === 'Completed');
+    return groupByPO(recs);
   }, [records, tabValue]);
 
-  const filtered = useMemo(() => stageRecords.filter((i) => {
-    const f = appliedFilters;
-    return (
-      (!f.indentNumber || i.indentNumber.toLowerCase().includes(f.indentNumber.toLowerCase())) &&
-      (!f.itemName || i.itemName.toLowerCase().includes(f.itemName.toLowerCase())) &&
-      (!f.partyName || i.partyName.toLowerCase().includes(f.partyName.toLowerCase())) &&
-      (!f.companyName || i.companyName.toLowerCase().includes(f.companyName.toLowerCase())) &&
-      (!f.status || i.status === f.status) &&
-      (!f.dateFrom || i.createdDate >= f.dateFrom) &&
-      (!f.dateTo || i.createdDate <= f.dateTo)
-    );
-  }), [stageRecords, appliedFilters]);
+  const filtered = useMemo(() =>
+    stageRecords.filter((i) => {
+      const f = appliedFilters;
+      return (
+        (!f.partyName   || i.partyName.toLowerCase().includes(f.partyName.toLowerCase()))     &&
+        (!f.companyName || i.companyName.toLowerCase().includes(f.companyName.toLowerCase())) &&
+        (!f.status      || i.status === f.status)                                             &&
+        (!f.dateFrom    || i.createdDate >= f.dateFrom)                                       &&
+        (!f.dateTo      || i.createdDate <= f.dateTo)
+      );
+    }), [stageRecords, appliedFilters]);
 
-  const handleCompleteProcess = (row) => {
-    dispatch(completeStage({ id: row.id, currentStage: 'liftReceiver' }));
-    toast.success(`Lift Receiver completed for Indent ${row.indentNumber} and moved to Tally Entry.`);
-  };
+  const handleViewPO = (row) => { setPoViewRecord(row); setPoViewOpen(true); };
+  const historyCols  = useMemo(() => getHistoryCols(handleViewPO), []);
 
   const actions = useCallback((row) => {
     if (tabValue === 0) {
       return [
-        <Button key="complete" size="small" variant="contained" color="success" onClick={() => handleCompleteProcess(row)} sx={{ minWidth: '130px', fontSize: '0.7rem' }}>
-          Lift Receiver
+        <Button key="verify" size="small" variant="contained" color="success"
+          startIcon={<CheckCircleIcon />}
+          onClick={() => { setSelectedRow(row); setReceiverOpen(true); }}
+          sx={{ minWidth: '120px', fontSize: '0.7rem' }}>
+          Verify
         </Button>
       ];
-    } else {
-      return [
-        <ViewBtn key="view" onClick={() => {}} />,
-        <PrintBtn key="print" onClick={() => printTable([row], WORKFLOW_COLUMNS.map((c) => ({ key: c.key, header: c.label })), `Lift Receiver for ${row.indentNumber}`)} />
-      ];
     }
-  }, [tabValue, dispatch]);
+    return [<ViewBtn key="view" onClick={() => handleViewPO(row)} />];
+  }, [tabValue]);
 
   return (
-    <Box>
+    <Box sx={{ width: '100%' }}>
       <PageHeader
-        title="Lift Receiver Material"
-        subtitle={`${filtered.length} records found`}
+        title="Lift Receiver"
+        subtitle={`${filtered.length} PO(s) found`}
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Lift Receiver' }]}
       />
-
       <WorkflowTabs tabValue={tabValue} onChange={setTabValue} />
-      
-      <WorkflowFilters 
-        appliedFilters={appliedFilters}
-        onApply={setAppliedFilters}
-        onReset={() => setAppliedFilters(defaultFilters)}
+      <WorkflowFilters appliedFilters={appliedFilters} onApply={setAppliedFilters} onReset={() => setAppliedFilters(defaultFilters)} />
+
+      <DataTable
+        columns={tabValue === 1 ? historyCols : PO_COLUMNS}
+        rows={filtered}
+        title={tabValue === 0 ? 'Pending Receiver' : 'Receiver History'}
+        searchKey={['poNumber', 'partyName', 'companyName']}
+        actions={actions}
+        density="compact"
       />
 
-      <WorkflowTable 
-        rows={filtered} 
-        title={tabValue === 0 ? "Pending Lift Receiver" : "Lift Receiver History"} 
-        actions={actions} 
-      />
+      {receiverOpen && (
+        <LiftReceiverForm
+          open={receiverOpen}
+          onClose={() => { setReceiverOpen(false); setSelectedRow(null); }}
+          record={selectedRow}
+          groupIds={selectedRow?._groupIds}
+        />
+      )}
+
+      {poViewOpen && (
+        <GeneratePOForm open={poViewOpen} onClose={() => { setPoViewOpen(false); setPoViewRecord(null); }} viewRecord={poViewRecord} />
+      )}
     </Box>
   );
 }

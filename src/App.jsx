@@ -8,6 +8,7 @@ import LoginPage from './pages/auth/LoginPage';
 import UnauthorizedPage from './pages/auth/UnauthorizedPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import IndentManagementPage from './pages/indent/IndentManagementPage';
+import WhatsAppFormPage from './pages/whatsapp/WhatsAppFormPage';
 import PurchaseOrderPage from './pages/purchaseOrder/PurchaseOrderPage';
 import ApprovalPurchasePOPage from './pages/purchaseOrder/ApprovalPurchasePOPage';
 import SendPOToPartyPage from './pages/purchaseOrder/SendPOToPartyPage';
@@ -21,6 +22,7 @@ import UserManagementPage from './pages/userManagement/UserManagementPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import ReportsPage from './pages/reports/ReportsPage';
 import CompanyMasterPage from './pages/master/CompanyMasterPage';
+import ProductMasterPage from './pages/master/ProductMasterPage';
 import VendorMasterPage from './pages/vendors/VendorMasterPage';
 
 export default function App() {
@@ -33,6 +35,7 @@ export default function App() {
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute page="dashboard"><DashboardPage /></ProtectedRoute>} />
+          <Route path="/whatsapp-form" element={<ProtectedRoute page="whatsapp"><WhatsAppFormPage /></ProtectedRoute>} />
           <Route path="/indent" element={<ProtectedRoute page="indent"><IndentManagementPage /></ProtectedRoute>} />
           <Route path="/purchase-order" element={<ProtectedRoute page="purchaseOrder"><PurchaseOrderPage /></ProtectedRoute>} />
           <Route path="/approval-po" element={<ProtectedRoute page="purchaseOrder"><ApprovalPurchasePOPage /></ProtectedRoute>} />
@@ -48,6 +51,7 @@ export default function App() {
           <Route path="/settings"         element={<ProtectedRoute page="settings"><SettingsPage /></ProtectedRoute>} />
           <Route path="/reports"          element={<ProtectedRoute page="reports"><ReportsPage /></ProtectedRoute>} />
           <Route path="/master"           element={<ProtectedRoute page="master"><CompanyMasterPage /></ProtectedRoute>} />
+          <Route path="/product-data"     element={<ProtectedRoute page="master"><ProductMasterPage /></ProtectedRoute>} />
           <Route path="/vendors"          element={<ProtectedRoute page="vendors"><VendorMasterPage /></ProtectedRoute>} />
         </Route>
 

@@ -283,6 +283,7 @@ export default function CompanyMasterPage() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
+                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', bgcolor: 'background.default', minWidth: 130 }}>Actions</TableCell>
                 {TABLE_COLUMNS.map((col) => (
                   <TableCell
                     key={col.id}
@@ -298,7 +299,6 @@ export default function CompanyMasterPage() {
                     </TableSortLabel>
                   </TableCell>
                 ))}
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', bgcolor: 'background.default', minWidth: 130 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -313,6 +313,13 @@ export default function CompanyMasterPage() {
                 </TableRow>
               ) : paginated.map((row) => (
                 <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5}>
+                      <Tooltip title="View"><IconButton size="small" color="info" onClick={() => { setSelected(row); setViewOpen(true); }}><VisibilityIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                      <Tooltip title="Edit"><IconButton size="small" color="primary" onClick={() => { setSelected(row); setFormOpen(true); }}><EditIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                      <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => { setSelected(row); setDeleteOpen(true); }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                    </Stack>
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{row.companyName}</TableCell>
                   <TableCell sx={{ fontSize: '0.78rem', fontFamily: 'monospace' }}>{row.gstNumber}</TableCell>
                   <TableCell sx={{ fontSize: '0.78rem', fontFamily: 'monospace' }}>{row.panNumber}</TableCell>
@@ -324,13 +331,6 @@ export default function CompanyMasterPage() {
                     <Chip label={row.status} size="small" color={row.status === 'Active' ? 'success' : 'default'} />
                   </TableCell>
                   <TableCell sx={{ fontSize: '0.78rem' }}>{formatDate(row.createdDate)}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5}>
-                      <Tooltip title="View"><IconButton size="small" color="info" onClick={() => { setSelected(row); setViewOpen(true); }}><VisibilityIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-                      <Tooltip title="Edit"><IconButton size="small" color="primary" onClick={() => { setSelected(row); setFormOpen(true); }}><EditIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-                      <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => { setSelected(row); setDeleteOpen(true); }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-                    </Stack>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

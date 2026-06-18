@@ -1,317 +1,583 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import {
-  Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, Grid,
-  TextField, MenuItem, Typography, Divider, Chip, IconButton, Tooltip
+  Box, Button, Grid, TextField, MenuItem, Typography, Card, CardContent,
+  Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
+  Paper, IconButton, Divider, alpha, useTheme, Chip, InputAdornment, Tooltip,
+  TablePagination, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import { ViewBtn, EditBtn, DeleteBtn, PrintBtn } from '../../components/common/ActionButtons';
+import DeleteIcon        from '@mui/icons-material/Delete';
+import CloudUploadIcon   from '@mui/icons-material/CloudUpload';
+import RocketLaunchIcon  from '@mui/icons-material/RocketLaunch';
+import AssignmentIcon    from '@mui/icons-material/Assignment';
+import AddIcon         from '@mui/icons-material/Add';
+import WhatsAppIcon      from '@mui/icons-material/WhatsApp';
+import SearchIcon        from '@mui/icons-material/Search';
+import FileDownloadIcon  from '@mui/icons-material/FileDownload';
 import { toast } from 'react-toastify';
-import { addRecord, updateRecord, deleteRecord, completeStage } from '../../store/slices/workflowSlice';
-import WorkflowTable, { WORKFLOW_COLUMNS } from '../../components/common/WorkflowTable';
-import WorkflowFilters, { defaultFilters } from '../../components/common/WorkflowFilters';
-import WorkflowTabs from '../../components/common/WorkflowTabs';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import PageHeader from '../../components/common/PageHeader';
-import GeneratePOForm from '../../components/po/GeneratePOForm';
-import { formatCurrency, formatDate, statusColor, generateNumber } from '../../utils/formatters';
-import { COMPANIES, VENDORS, GROUPS, UNITS } from '../../data/mockData';
-import { printTable } from '../../utils/exportUtils';
+import { addRecord } from '../../store/slices/workflowSlice';
+import { formatDate, generateIndentNumber } from '../../utils/formatters';
+import { COMPANIES, VENDORS, PRODUCTS } from '../../data/mockData';
+import { exportToExcel } from '../../utils/exportUtils';
 
-const ORDER_BY = ['Admin User', 'John Smith', 'Sarah Johnson', 'Emma Davis', 'Mike Wilson'];
+/* ─── constants ───────────────────────────────────── */
+const ORDER_BY_LIST = [
+  'Admin User', 'John Smith', 'Sarah Johnson', 'Emma Davis',
+  'Mike Wilson', 'Mr. Sharma', 'Amlan Dikshit',
+];
 
-function IndentForm({ open, onClose, editItem, records }) {
+const INPUT_SX = {
+  '& .MuiInputBase-input': { py: '6px', px: '8px', fontSize: '0.8rem' },
+  '& .MuiOutlinedInput-root': { borderRadius: 1 },
+};
+
+/* ─── tiny inline number input ────────────────────── */
+function NumInput({ regProps, defaultValue }) {
+  return (
+    <TextField
+      {...regProps}
+      size="small"
+      type="number"
+      defaultValue={defaultValue ?? 0}
+      inputProps={{ style: { padding: '5px 6px', fontSize: '0.78rem', width: 64 } }}
+      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+    />
+  );
+}
+
+
+/* ─── Indent List Table ────────────────────────────── */
+const LIST_COLS = [
+  { key: 'createdDate',  label: 'Timestamp',       render: v => formatDate(v, true) },
+  { key: 'indentNumber', label: 'Indent Number',   render: v => <Chip label={v} size="small" color="primary" sx={{ fontWeight: 700, fontSize: '0.7rem', height: 22 }} /> },
+  { key: 'serialNo',     label: 'Serial No.' },
+  { key: 'orderBy',      label: 'Order By' },
+  { key: 'partyName',    label: 'Party Name',       render: v => <Typography variant="body2" fontWeight={600}>{v}</Typography> },
+  { key: 'groupName',    label: 'Group Name' },
+  { key: 'itemName',     label: 'Item Name',         render: v => <Typography variant="body2" sx={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v}</Typography> },
+  { key: 'itemCode',     label: 'Item Code' },
+  { key: 'description',  label: 'Description' },
+  { key: 'quantity',     label: 'Quantity' },
+  { key: 'unit',         label: 'Unit' },
+  { key: 'rate',         label: 'Rate' },
+  { key: 'gst',          label: 'GST %' },
+  { key: 'discount',     label: 'Discount Amount' },
+  { key: 'image',        label: 'Image',            render: v => v ? <a href={v} target="_blank" rel="noreferrer" style={{ color: '#2563eb', fontSize: '0.78rem' }}>View Link</a> : '—' },
+  { key: 'leadDays',     label: 'Approx Lead Days' },
+  { key: 'companyName',  label: 'Company Name' },
+];
+
+function IndentListTable({ rows }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const filtered = useMemo(() => {
+    if (!search) return rows;
+    const q = search.toLowerCase();
+    return rows.filter(r =>
+      Object.values(r).some(v => String(v ?? '').toLowerCase().includes(q))
+    );
+  }, [rows, search]);
+
+  const paginated = filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
+
+  const exportCols = LIST_COLS.map(c => ({ key: c.key, header: c.label }));
+
+  return (
+    <Paper elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+      {/* toolbar */}
+      <Box sx={{
+        px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1,
+        borderBottom: 1, borderColor: 'divider',
+        bgcolor: isDark ? 'rgba(241,245,249,.02)' : '#fafafa',
+        minHeight: 50,
+      }}>
+        <Typography variant="body2" fontWeight={700} sx={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}>Indent List</Typography>
+        <Typography variant="caption" color="text.disabled" fontWeight={500}>({filtered.length})</Typography>
+        <Box flex={1} />
+        <TextField
+          size="small" placeholder="Search records..." value={search}
+          onChange={e => { setSearch(e.target.value); setPage(0); }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 14, color: 'text.disabled' }} /></InputAdornment> }}
+          sx={{
+            width: 200,
+            '& .MuiOutlinedInput-root': { height: 34, borderRadius: '8px', fontSize: '0.8rem' },
+            '& .MuiOutlinedInput-input': { py: 0 },
+          }}
+        />
+        <Tooltip title="Export Excel" arrow>
+          <IconButton size="small" onClick={() => exportToExcel(filtered, exportCols, 'Indent List')}
+            sx={{ width: 30, height: 30, borderRadius: '8px', border: 1, borderColor: 'divider', color: '#059669', '&:hover': { bgcolor: 'action.hover' } }}
+          >
+            <FileDownloadIcon sx={{ fontSize: 15 }} />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      {/* table */}
+      <TableContainer sx={{ overflowX: 'auto', maxHeight: 500 }}>
+        <Table stickyHeader size="small" sx={{ minWidth: 1600 }}>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', py: 1.2, bgcolor: isDark ? 'grey.900' : 'grey.100', color: 'text.secondary', whiteSpace: 'nowrap', px: 1.5 }}>#</TableCell>
+              {LIST_COLS.map(col => (
+                <TableCell key={col.key} sx={{ fontWeight: 700, fontSize: '0.72rem', py: 1.2, bgcolor: isDark ? 'grey.900' : 'grey.100', color: 'text.secondary', whiteSpace: 'nowrap', px: 1.5 }}>
+                  {col.label}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {paginated.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={LIST_COLS.length + 1} align="center" sx={{ py: 5, color: 'text.disabled', fontSize: '0.85rem' }}>
+                  No indent records yet. Submit a request to see data here.
+                </TableCell>
+              </TableRow>
+            )}
+            {paginated.map((row, idx) => (
+              <TableRow
+                key={row.id || idx}
+                hover
+                sx={{
+                  '&:last-child td': { borderBottom: 0 },
+                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.03) },
+                }}
+              >
+                <TableCell sx={{ py: 1, px: 1.5, color: 'text.disabled', fontSize: '0.75rem', fontWeight: 500 }}>
+                  {page * rowsPerPage + idx + 1}
+                </TableCell>
+                {LIST_COLS.map(col => (
+                  <TableCell key={col.key} sx={{ py: 1, px: 1.5, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                    {col.render ? col.render(row[col.key], row) : <Typography variant="body2" fontSize="0.8rem">{String(row[col.key] ?? '—')}</Typography>}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
+        <TablePagination
+          component="div" count={filtered.length} page={page}
+          onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value)); setPage(0); }}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          sx={{ '& .MuiTablePagination-toolbar': { minHeight: 44, px: 2 }, '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: '0.8rem', color: 'text.secondary' } }}
+        />
+      </Box>
+    </Paper>
+  );
+}
+
+/* ─── Main Page ────────────────────────────────────── */
+export default function IndentManagementPage() {
   const dispatch = useDispatch();
-  const { register, handleSubmit, control, watch, formState: { errors } } = useForm({
-    defaultValues: editItem || {
-      indentNumber: generateNumber('IND', records, 'indentNumber'),
-      serialNo: records.length + 1, orderBy: '', partyName: '', groupName: '', itemName: '',
-      itemCode: '', description: '', quantity: '', unit: '', rate: '', gst: 18,
-      discount: 0, leadDays: '', companyName: '',
+  const records  = useSelector(s => s.workflow.records);
+  const theme    = useTheme();
+  const isDark   = theme.palette.mode === 'dark';
+  const imageRef = useRef(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const {
+    register: reg,
+    control,
+    watch,
+    reset,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    defaultValues: {
+      companyName: 'Acemark Stationers',
+      orderBy: '',
+      partyName: '',
+      filterGroup: '',
+      searchItem: '',
+      items: [],
     },
   });
 
-  const qty = parseFloat(watch('quantity')) || 0;
-  const rate = parseFloat(watch('rate')) || 0;
-  const gst = parseFloat(watch('gst')) || 0;
-  const disc = parseFloat(watch('discount')) || 0;
-  const amount = (qty * rate * (1 + gst / 100) * (1 - disc / 100)).toFixed(2);
+  const { fields, replace, remove } = useFieldArray({ control, name: 'items' });
 
-  const onSubmit = (data) => {
-    const item = { 
-      ...data, 
-      amount: parseFloat(amount), 
-      quantity: Number(data.quantity), 
-      rate: Number(data.rate), 
-      gst: Number(data.gst), 
-      discount: Number(data.discount), 
-      leadDays: Number(data.leadDays), 
-      createdDate: editItem?.createdDate || new Date().toISOString().slice(0, 10),
-      status: 'Pending Approval' // Initial state
-    };
-    if (editItem) { 
-      dispatch(updateRecord(item)); 
-      toast.success('Indent updated successfully!'); 
-    } else { 
-      dispatch(addRecord(item)); 
-      toast.success('Indent created successfully!'); 
-    }
-    onClose();
-  };
+  const partyName   = watch('partyName');
+  const filterGroup = watch('filterGroup');
+  const searchItem  = watch('searchItem');
 
-  /* Shared sx for every TextField so they never resize */
-  const INPUT_SX = {
-    width: '100%',
-    '& .MuiInputBase-root': { width: '100%' },
-    '& .MuiSelect-select': {
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-    },
-  };
+  /* unique group names for the selected party */
+  const partyGroups = useMemo(() => {
+    if (!partyName) return [];
+    const groups = PRODUCTS
+      .filter(p => p.supplierName === partyName)
+      .map(p => p.groupName);
+    return [...new Set(groups)];
+  }, [partyName]);
 
-  const field = (name, label, opts = {}) => (
-    <TextField
-      fullWidth size="small" label={label} sx={INPUT_SX}
-      {...register(name, { required: opts.required !== false ? `${label} is required` : false })}
-      error={!!errors[name]} helperText={errors[name]?.message}
-      type={opts.type || 'text'} inputProps={opts.inputProps}
-    />
+  /* load all party items when party changes */
+  useEffect(() => {
+    if (!partyName) { replace([]); return; }
+    const items = PRODUCTS
+      .filter(p => p.supplierName === partyName)
+      .map(p => ({
+        _productId:  p.id,
+        groupName:   p.groupName,
+        itemName:    p.itemName,
+        unit:        p.unit,
+        rate:        p.purchaseRate,
+        gst:         0,
+        itemCode:    p.itemCode,
+        leadDays:    0,
+        description: '',
+        discount:    0,
+        quantity:    0,
+      }));
+    replace(items);
+  }, [partyName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* filtered visible rows */
+  const visibleFields = useMemo(() =>
+    fields
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => {
+        const groupMatch = !filterGroup || item.groupName === filterGroup;
+        const nameMatch  = !searchItem  || item.itemName.toLowerCase().includes(searchItem.toLowerCase());
+        return groupMatch && nameMatch;
+      }),
+    [fields, filterGroup, searchItem]
   );
 
-  /* CSS-grid row helpers — columns never flex-shrink */
-  const gridRow = (cols, children) => (
-    <Box
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: {
-          xs: '1fr',
-          sm: cols.map(() => '1fr').join(' '),
+  const onSubmit = data => {
+    const activeItems = data.items.filter(it => Number(it.quantity) > 0);
+    if (activeItems.length === 0) {
+      toast.error('Enter a quantity > 0 for at least one item.');
+      return;
+    }
+
+    const indentNo  = generateIndentNumber(records, data.partyName);
+    const existingForParty = records.filter(r => r.indentNumber === indentNo);
+    const startSerial = existingForParty.length > 0 ? Math.max(...existingForParty.map(r => r.serialNo || 0)) : 0;
+    
+    const timestamp = new Date().toISOString();
+    const imageUrl  = imageFile ? URL.createObjectURL(imageFile) : null;
+
+    activeItems.forEach((item, i) => {
+      const qty  = Number(item.quantity) || 0;
+      const rate = Number(item.rate)     || 0;
+      const gst  = Number(item.gst)      || 0;
+      const disc = Number(item.discount) || 0;
+
+      dispatch(addRecord({
+        id: Date.now() + i,
+        indentNumber: indentNo,
+        serialNo:     startSerial + i + 1,
+        createdDate:  timestamp,
+        date:         timestamp.slice(0, 10),
+        orderBy:      data.orderBy,
+        partyName:    data.partyName,
+        companyName:  data.companyName,
+        image:        imageUrl,
+        groupName:    item.groupName,
+        itemName:     item.itemName,
+        itemCode:     item.itemCode,
+        description:  item.description,
+        quantity:     qty,
+        unit:         item.unit,
+        rate,
+        gst,
+        discount:     disc,
+        amount:       (qty * rate * (1 + gst / 100)) - disc,
+        leadDays:     Number(item.leadDays) || 0,
+        status:       'In Progress',
+        workflowStage: {
+          indent: 'Completed', purchaseOrder: 'Pending', approvalPO: null,
+          sendPO: null, followUp: null, logistics: null,
+          receiveMaterial: null, liftReceiver: null, tallyEntry: null,
         },
-        gap: 2,
-        mb: 2,
-        '& > *': { minWidth: 0 },   /* prevents overflow-driven shrink */
-      }}
-    >
-      {children}
-    </Box>
-  );
+      }));
+    });
 
+    toast.success(`Indent ${indentNo} submitted with ${activeItems.length} item(s)!`);
+    reset({ companyName: data.companyName, orderBy: '', partyName: '', filterGroup: '', searchItem: '', items: [] });
+    setImageFile(null);
+    if (imageRef.current) imageRef.current.value = '';
+    setIsFormOpen(false);
+  };
+
+  /* ── render ────────────────────────────────────────── */
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
-      <DialogTitle sx={{ pb: 1, fontWeight: 700 }}>
-        {editItem ? 'Edit Indent' : 'Create New Indent'}
-      </DialogTitle>
-      <Divider />
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <DialogContent sx={{ pt: 2 }}>
+    <Box sx={{ width: '100%' }}>
 
-          {/* Row 1: Indent Number | Serial No. | Order By — 3 equal columns */}
-          {gridRow([1,1,1], [
-            field('indentNumber', 'Indent Number'),
-            field('serialNo', 'Serial No.', { type: 'number' }),
-            <Controller key="orderBy" name="orderBy" control={control} rules={{ required: 'Required' }} render={({ field: f }) => (
-              <TextField {...f} select fullWidth size="small" label="Order By" sx={INPUT_SX}
-                error={!!errors.orderBy} helperText={errors.orderBy?.message}>
-                {ORDER_BY.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-              </TextField>
-            )} />,
-          ])}
-
-          {/* Row 2: Party Name | Group Name — 2 equal columns */}
-          {gridRow([1,1], [
-            <Controller key="partyName" name="partyName" control={control} rules={{ required: 'Required' }} render={({ field: f }) => (
-              <TextField {...f} select fullWidth size="small" label="Party Name" sx={INPUT_SX}
-                error={!!errors.partyName} helperText={errors.partyName?.message}>
-                {VENDORS.map((v) => <MenuItem key={v.id} value={v.name}>{v.name}</MenuItem>)}
-              </TextField>
-            )} />,
-            <Controller key="groupName" name="groupName" control={control} rules={{ required: 'Required' }} render={({ field: f }) => (
-              <TextField {...f} select fullWidth size="small" label="Group Name" sx={INPUT_SX}
-                error={!!errors.groupName} helperText={errors.groupName?.message}>
-                {GROUPS.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
-              </TextField>
-            )} />,
-          ])}
-
-          {/* Row 3: Item Name | Item Code — 2 equal columns */}
-          {gridRow([1,1], [
-            field('itemName', 'Item Name'),
-            field('itemCode', 'Item Code'),
-          ])}
-
-          {/* Row 4: Description — full width */}
-          {gridRow([1], [field('description', 'Description', { required: false })])}
-
-          {/* Row 5: Quantity | Unit | Rate — 3 equal columns */}
-          {gridRow([1,1,1], [
-            field('quantity', 'Quantity', { type: 'number', inputProps: { min: 0, step: 0.01 } }),
-            <Controller key="unit" name="unit" control={control} rules={{ required: 'Required' }} render={({ field: f }) => (
-              <TextField {...f} select fullWidth size="small" label="Unit" sx={INPUT_SX}
-                error={!!errors.unit} helperText={errors.unit?.message}>
-                {UNITS.map((u) => <MenuItem key={u} value={u}>{u}</MenuItem>)}
-              </TextField>
-            )} />,
-            field('rate', 'Rate (₹)', { type: 'number', inputProps: { min: 0, step: 0.01 } }),
-          ])}
-
-          {/* Row 6: GST % | Discount % | Amount (Auto) — 3 equal columns */}
-          {gridRow([1,1,1], [
-            <Controller key="gst" name="gst" control={control} render={({ field: f }) => (
-              <TextField {...f} select fullWidth size="small" label="GST %" sx={INPUT_SX}>
-                {[0, 5, 12, 18, 28].map((g) => <MenuItem key={g} value={g}>{g}%</MenuItem>)}
-              </TextField>
-            )} />,
-            field('discount', 'Discount %', { type: 'number', required: false, inputProps: { min: 0, max: 100 } }),
-            <TextField key="amount" fullWidth size="small" label="Amount (Auto)" sx={INPUT_SX}
-              value={formatCurrency(parseFloat(amount))} disabled />,
-          ])}
-
-          {/* Row 7: Lead Days | Company Name — 2 equal columns */}
-          {gridRow([1,1], [
-            field('leadDays', 'Lead Days', { type: 'number', inputProps: { min: 1 } }),
-            <Controller key="companyName" name="companyName" control={control} rules={{ required: 'Required' }} render={({ field: f }) => (
-              <TextField {...f} select fullWidth size="small" label="Company Name" sx={INPUT_SX}
-                error={!!errors.companyName} helperText={errors.companyName?.message}>
-                {COMPANIES.map((c) => <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>)}
-              </TextField>
-            )} />,
-          ])}
-
-        </DialogContent>
-        <Divider />
-        <DialogActions sx={{ p: 2 }}
+      {/* ── Page Header ── */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box>
+          <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+            <AssignmentIcon sx={{ fontSize: 30, color: 'primary.main' }} />
+            <Typography variant="h5" fontWeight={800} color="primary.main">Indent Form</Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary">Submit your professional request with ease</Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setIsFormOpen(true)}
+          sx={{ fontWeight: 700, borderRadius: 2, px: 3 }}
         >
-          <Button onClick={onClose} variant="outlined">Cancel</Button>
-          <Button type="submit" variant="contained">
-            {editItem ? 'Update' : 'Create'} Indent
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
-  );
-}
+          Create Indent
+        </Button>
+      </Box>
 
-function ViewDialog({ open, onClose, item }) {
-  if (!item) return null;
-  const fields = [
-    ['Indent Number', item.indentNumber], ['Serial No.', item.serialNo], ['Order By', item.orderBy],
-    ['Party Name', item.partyName], ['Group Name', item.groupName], ['Item Name', item.itemName],
-    ['Item Code', item.itemCode], ['Description', item.description], ['Quantity', item.quantity],
-    ['Unit', item.unit], ['Rate', formatCurrency(item.rate)], ['GST %', `${item.gst}%`],
-    ['Discount %', `${item.discount}%`], ['Amount', formatCurrency(item.amount)],
-    ['Lead Days', `${item.leadDays} days`], ['Company', item.companyName],
-    ['Status', item.status], ['Created Date', formatDate(item.createdDate)],
-  ];
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
-      <DialogTitle>Indent Details — {item.indentNumber}</DialogTitle>
-      <Divider />
-      <DialogContent sx={{ pt: 2 }}>
-        <Grid container spacing={1}>
-          {fields.map(([label, value]) => (
-            <Grid item xs={6} key={label}>
-              <Typography variant="caption" color="text.secondary">{label}</Typography>
-              <Typography variant="body2" fontWeight={500}>{label === 'Status' ? <Chip label={value} size="small" color={statusColor(value)} /> : value || '—'}</Typography>
+
+      {/* ── Create Indent Dialog ── */}
+      <Dialog
+        open={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            width: '850px',
+            maxWidth: '96vw',
+            maxHeight: '92vh',
+            bgcolor: isDark ? 'background.paper' : '#f8fafc'
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: 'primary.main', borderBottom: 1, borderColor: 'divider', pb: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 38, height: 38, borderRadius: 2, bgcolor: 'primary.50', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AddIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+          </Box>
+          Create New Indent
+        </DialogTitle>
+        <DialogContent sx={{ p: 3, overflowY: 'auto' }}>
+          <form id="indent-form" onSubmit={handleSubmit(onSubmit)}>
+
+            {/* Row 1 — Company | Order By | Party | Image */}
+            <Grid container spacing={2} mb={partyName ? 3 : 2}>
+
+              {/* Company Name */}
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={0.5}>
+                  Company Name<span style={{ color: 'red' }}>*</span>
+                </Typography>
+                <Controller name="companyName" control={control} rules={{ required: true }} render={({ field }) => (
+                  <TextField
+                    {...field} select fullWidth size="small"
+                    error={!!errors.companyName}
+                    sx={INPUT_SX}
+                  >
+                    {COMPANIES.map(c => <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>)}
+                  </TextField>
+                )} />
+              </Grid>
+
+              {/* Order By */}
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={0.5}>
+                  Order By<span style={{ color: 'red' }}>*</span>
+                </Typography>
+                <Controller name="orderBy" control={control} rules={{ required: true }} render={({ field }) => (
+                  <TextField
+                    {...field} select fullWidth size="small"
+                    error={!!errors.orderBy}
+                    sx={INPUT_SX}
+                  >
+                    {ORDER_BY_LIST.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                  </TextField>
+                )} />
+              </Grid>
+
+              {/* Party Name */}
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={0.5}>
+                  Party Name (Vendor)<span style={{ color: 'red' }}>*</span>
+                </Typography>
+                <Controller name="partyName" control={control} rules={{ required: true }} render={({ field }) => (
+                  <TextField
+                    {...field} select fullWidth size="small"
+                    error={!!errors.partyName}
+                    sx={INPUT_SX}
+                  >
+                    {VENDORS.map(v => <MenuItem key={v.id} value={v.name}>{v.name}</MenuItem>)}
+                  </TextField>
+                )} />
+              </Grid>
+
+              {/* Upload Image */}
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={0.5}>
+                  Upload Image (Optional)
+                </Typography>
+                <Button
+                  variant="outlined" component="label" fullWidth
+                  startIcon={<CloudUploadIcon sx={{ fontSize: 16 }} />}
+                  sx={{
+                    height: 36, textTransform: 'none', fontSize: '0.8rem',
+                    color: 'text.secondary', borderColor: 'divider',
+                    '&:hover': { borderColor: 'text.secondary' },
+                  }}
+                >
+                  {imageFile ? imageFile.name.slice(0, 16) + '…' : 'Choose File'}
+                  <input
+                    type="file" hidden ref={imageRef}
+                    onChange={e => setImageFile(e.target.files[0] || null)}
+                    accept="image/*"
+                  />
+                </Button>
+              </Grid>
             </Grid>
-          ))}
-        </Grid>
-      </DialogContent>
-      <DialogActions><Button onClick={onClose}>Close</Button></DialogActions>
-    </Dialog>
-  );
-}
 
-export default function IndentManagementPage() {
-  const dispatch = useDispatch();
-  const records = useSelector((s) => s.workflow.records);
-  const [tabValue, setTabValue] = useState(0); // 0: Pending, 1: History
-  
-  const [formOpen, setFormOpen] = useState(false);
-  const [viewOpen, setViewOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [selected, setSelected] = useState(null);
-  
-  const [appliedFilters, setAppliedFilters] = useState(defaultFilters);
+            {/* ── Dynamic Section: only when party selected ── */}
+            {partyName && (
+              <Box
+                sx={{
+                  bgcolor: isDark ? alpha('#3b82f6', 0.05) : '#f8fafc',
+                  border: '1px solid',
+                  borderColor: isDark ? alpha('#3b82f6', 0.2) : '#e2e8f0',
+                  borderRadius: 2,
+                  p: 2.5,
+                  mb: 3,
+                }}
+              >
+                {/* Section header */}
+                <Typography variant="subtitle1" fontWeight={700} color="primary.main" mb={2}>
+                  Items for: <span style={{ fontWeight: 800 }}>{partyName}</span>
+                </Typography>
 
-  const stageRecords = useMemo(() => {
-    if (tabValue === 0) {
-      return records.filter(r => r.workflowStage.indent === 'Pending');
-    } else {
-      return records.filter(r => r.workflowStage.indent === 'Completed');
-    }
-  }, [records, tabValue]);
+                {/* Filter row */}
+                <Grid container spacing={2} mb={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={0.5}>Filter by Group</Typography>
+                    <TextField
+                      {...reg('filterGroup')} select fullWidth size="small"
+                      sx={{ ...INPUT_SX, bgcolor: isDark ? 'background.paper' : 'white' }}
+                    >
+                      <MenuItem value="">All Groups</MenuItem>
+                      {partyGroups.map(g => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={0.5}>Search Item</Typography>
+                    <TextField
+                      {...reg('searchItem')} fullWidth size="small"
+                      placeholder="Type to search items…"
+                      InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: 'text.disabled' }} /></InputAdornment> }}
+                      sx={{ ...INPUT_SX, bgcolor: isDark ? 'background.paper' : 'white' }}
+                    />
+                  </Grid>
+                </Grid>
 
-  const filtered = useMemo(() => stageRecords.filter((i) => {
-    const f = appliedFilters;
-    return (
-      (!f.indentNumber || i.indentNumber.toLowerCase().includes(f.indentNumber.toLowerCase())) &&
-      (!f.itemName || i.itemName.toLowerCase().includes(f.itemName.toLowerCase())) &&
-      (!f.partyName || i.partyName.toLowerCase().includes(f.partyName.toLowerCase())) &&
-      (!f.companyName || i.companyName.toLowerCase().includes(f.companyName.toLowerCase())) &&
-      (!f.status || i.status === f.status) &&
-      (!f.dateFrom || i.createdDate >= f.dateFrom) &&
-      (!f.dateTo || i.createdDate <= f.dateTo)
-    );
-  }), [stageRecords, appliedFilters]);
+                {/* Item count badge */}
+                <Typography variant="body2" fontWeight={700} color="primary.main" mb={1}>
+                  Total Items: {visibleFields.length}
+                </Typography>
 
-  const handleDelete = () => {
-    dispatch(deleteRecord(selected.id));
-    toast.success('Indent deleted successfully!');
-    setDeleteOpen(false);
-    setSelected(null);
-  };
+                {/* Items table */}
+                <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: isDark ? alpha('#94a3b8', 0.15) : '#e2e8f0', borderRadius: 1.5 }}>
+                  <Table size="small" sx={{ minWidth: 1100, tableLayout: 'auto' }}>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: isDark ? 'grey.900' : '#f1f5f9' }}>
+                        {['S.No.','Group','Item','Unit','Rate','GST %','Item Code','Lead Days','Description','Discount %','Quantity *','Action'].map(h => (
+                          <TableCell key={h} sx={{ fontWeight: 700, fontSize: '0.72rem', py: 1.2, px: 1.5, color: 'text.secondary', whiteSpace: 'nowrap' }}>{h}</TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {visibleFields.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={12} align="center" sx={{ py: 4, color: 'text.disabled', fontSize: '0.85rem' }}>
+                            No items found for the selected filter.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {visibleFields.map(({ item, index }) => (
+                        <TableRow key={item.id || index} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                          <TableCell sx={{ py: 1, px: 1.5, color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600 }}>{index + 1}</TableCell>
+                          <TableCell sx={{ py: 1, px: 1.5, fontSize: '0.78rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>{item.groupName}</TableCell>
+                          <TableCell sx={{ py: 1, px: 1.5, fontSize: '0.82rem', fontWeight: 500, maxWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.itemName}</TableCell>
+                          <TableCell sx={{ py: 1, px: 1.5, fontSize: '0.78rem' }}>{item.unit}</TableCell>
+                          <TableCell sx={{ py: 1, px: 1 }}><NumInput regProps={reg(`items.${index}.rate`)} defaultValue={item.rate} /></TableCell>
+                          <TableCell sx={{ py: 1, px: 1 }}><NumInput regProps={reg(`items.${index}.gst`)}  defaultValue={item.gst} /></TableCell>
+                          <TableCell sx={{ py: 1, px: 1 }}>
+                            <TextField
+                              {...reg(`items.${index}.itemCode`)}
+                              size="small"
+                              defaultValue={item.itemCode}
+                              inputProps={{ style: { padding: '5px 6px', fontSize: '0.78rem', width: 90 } }}
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ py: 1, px: 1 }}><NumInput regProps={reg(`items.${index}.leadDays`)} defaultValue={item.leadDays} /></TableCell>
+                          <TableCell sx={{ py: 1, px: 1 }}>
+                            <TextField
+                              {...reg(`items.${index}.description`)}
+                              size="small"
+                              defaultValue={item.description}
+                              inputProps={{ style: { padding: '5px 6px', fontSize: '0.78rem', width: 120 } }}
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ py: 1, px: 1 }}><NumInput regProps={reg(`items.${index}.discount`)} defaultValue={item.discount} /></TableCell>
+                          <TableCell sx={{ py: 1, px: 1 }}>
+                            <TextField
+                              {...reg(`items.${index}.quantity`)}
+                              size="small"
+                              type="number"
+                              defaultValue={0}
+                              inputProps={{ min: 0, style: { padding: '5px 6px', fontSize: '0.82rem', fontWeight: 600, width: 70 } }}
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1, '& fieldset': { borderColor: '#3b82f6' } } }}
+                            />
+                          </TableCell>
+                          <TableCell align="center" sx={{ py: 1, px: 1 }}>
+                            <IconButton
+                              size="small"
+                              onClick={() => remove(index)}
+                              sx={{ bgcolor: '#ef4444', color: 'white', '&:hover': { bgcolor: '#dc2626' }, p: 0.5, borderRadius: 1 }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 15 }} />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
 
-  const handleCompleteProcess = (row) => {
-    dispatch(completeStage({ id: row.id, currentStage: 'indent' }));
-    toast.success(`Indent ${row.indentNumber} completed and moved to Purchase Order.`);
-  };
+            {/* Submit Button */}
+            <Box textAlign="center" mt={1}>
+              <Button
+                type="submit"
+                variant="contained"
+                size="large"
+                startIcon={<RocketLaunchIcon />}
+                sx={{
+                  px: 5, py: 1.3,
+                  bgcolor: '#059669',
+                  '&:hover': { bgcolor: '#047857' },
+                  textTransform: 'none',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  borderRadius: 2,
+                  boxShadow: '0 4px 14px rgba(5,150,105,0.35)',
+                  '&:hover': { bgcolor: '#047857', boxShadow: '0 6px 18px rgba(5,150,105,0.45)' },
+                }}
+              >
+                🚀 Submit Request
+              </Button>
+            </Box>
 
-  const actions = useCallback((row) => {
-    if (tabValue === 0) {
-      return [
-        <ViewBtn key="view" onClick={() => { setSelected(row); setViewOpen(true); }} />,
-        <EditBtn key="edit" onClick={() => { setSelected(row); setFormOpen(true); }} />,
-        <Button key="complete" size="small" variant="contained" color="success" onClick={() => handleCompleteProcess(row)} sx={{ ml: 1, minWidth: '130px', fontSize: '0.7rem' }}>
-          Complete Process
-        </Button>,
-        <DeleteBtn key="delete" onClick={() => { setSelected(row); setDeleteOpen(true); }} />
-      ];
-    } else {
-      return [
-        <ViewBtn key="view" onClick={() => { setSelected(row); setViewOpen(true); }} />,
-        <PrintBtn key="print" onClick={() => printTable([row], WORKFLOW_COLUMNS.map((c) => ({ key: c.key, header: c.label })), `Indent ${row.indentNumber}`)} />
-      ];
-    }
-  }, [tabValue, dispatch]);
+          </form>
+        </DialogContent>
+      </Dialog>
 
-  return (
-    <Box>
-      <PageHeader
-        title="Indent Management"
-        subtitle={`${filtered.length} indents found`}
-        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Indent' }]}
-        actions={<Button variant="contained" startIcon={<AddIcon />} onClick={() => { setSelected(null); setFormOpen(true); }}>Create Indent</Button>}
-      />
+      {/* ── Indent List Table ── */}
+      <IndentListTable rows={records} />
 
-      <WorkflowTabs tabValue={tabValue} onChange={setTabValue} />
-      
-      <WorkflowFilters 
-        appliedFilters={appliedFilters}
-        onApply={setAppliedFilters}
-        onReset={() => setAppliedFilters(defaultFilters)}
-      />
-
-      <WorkflowTable 
-        rows={filtered} 
-        title={tabValue === 0 ? "Pending Indents" : "Indent History"} 
-        actions={actions} 
-      />
-
-      {formOpen && <IndentForm open={formOpen} onClose={() => { setFormOpen(false); setSelected(null); }} editItem={selected} records={records} />}
-      <ViewDialog open={viewOpen} onClose={() => setViewOpen(false)} item={selected} />
-      <ConfirmDialog open={deleteOpen} onConfirm={handleDelete} onCancel={() => setDeleteOpen(false)} message={`Delete indent ${selected?.indentNumber}?`} />
     </Box>
   );
 }

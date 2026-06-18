@@ -259,6 +259,7 @@ export default function VendorMasterPage() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
+                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', bgcolor: 'background.default', minWidth: 130 }}>Actions</TableCell>
                 {TABLE_COLUMNS.map((col) => (
                   <TableCell
                     key={col.id}
@@ -274,7 +275,6 @@ export default function VendorMasterPage() {
                     </TableSortLabel>
                   </TableCell>
                 ))}
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', bgcolor: 'background.default', minWidth: 130 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -289,16 +289,6 @@ export default function VendorMasterPage() {
                 </TableRow>
               ) : paginated.map((row) => (
                 <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{row.vendorName}</TableCell>
-                  <TableCell sx={{ fontSize: '0.78rem', fontFamily: 'monospace' }}>{row.gstNumber}</TableCell>
-                  <TableCell sx={{ fontSize: '0.78rem' }}>{row.email}</TableCell>
-                  <TableCell sx={{ fontSize: '0.78rem' }}>{row.phoneNumber}</TableCell>
-                  <TableCell sx={{ fontSize: '0.78rem' }}>{row.contactPerson}</TableCell>
-                  <TableCell sx={{ fontSize: '0.78rem' }}>{row.vendorLocation}</TableCell>
-                  <TableCell>
-                    <Chip label={row.status} size="small" color={row.status === 'Active' ? 'success' : 'default'} />
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.78rem' }}>{formatDate(row.createdDate)}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={0.5}>
                       <Tooltip title="View">
@@ -318,6 +308,16 @@ export default function VendorMasterPage() {
                       </Tooltip>
                     </Stack>
                   </TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{row.vendorName}</TableCell>
+                  <TableCell sx={{ fontSize: '0.78rem', fontFamily: 'monospace' }}>{row.gstNumber}</TableCell>
+                  <TableCell sx={{ fontSize: '0.78rem' }}>{row.email}</TableCell>
+                  <TableCell sx={{ fontSize: '0.78rem' }}>{row.phoneNumber}</TableCell>
+                  <TableCell sx={{ fontSize: '0.78rem' }}>{row.contactPerson}</TableCell>
+                  <TableCell sx={{ fontSize: '0.78rem' }}>{row.vendorLocation}</TableCell>
+                  <TableCell>
+                    <Chip label={row.status} size="small" color={row.status === 'Active' ? 'success' : 'default'} />
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.78rem' }}>{formatDate(row.createdDate)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

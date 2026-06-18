@@ -15,9 +15,9 @@ export default function PageHeader({ title, subtitle, breadcrumbs = [], actions 
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        minHeight: 56,
-        maxHeight: 80,
-        py: 1.5,
+        minHeight: 48,
+        maxHeight: 72,
+        py: 1,
         px: 0,
         mb: 0,
       }}

@@ -25,6 +25,9 @@ export default function GetLiftingPage() {
     }
   }, [records, tabValue]);
 
+  const pendingCount = useMemo(() => records.filter(r => r.workflowStage.lifting === 'Pending').length, [records]);
+  const historyCount = useMemo(() => records.filter(r => r.workflowStage.lifting === 'Completed').length, [records]);
+
   const filtered = useMemo(() => stageRecords.filter((i) => {
     const f = appliedFilters;
     return (
@@ -62,11 +65,10 @@ export default function GetLiftingPage() {
     <Box>
       <PageHeader
         title="Get Lifting"
-        subtitle={`${filtered.length} records found`}
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Get Lifting' }]}
       />
 
-      <WorkflowTabs tabValue={tabValue} onChange={setTabValue} />
+      <WorkflowTabs tabValue={tabValue} onChange={setTabValue} pendingCount={pendingCount} historyCount={historyCount} />
       
       <WorkflowFilters 
         appliedFilters={appliedFilters}

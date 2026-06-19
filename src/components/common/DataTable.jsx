@@ -3,7 +3,7 @@ import {
   Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TableSortLabel, TablePagination, Paper, IconButton, Tooltip, Chip,
   TextField, InputAdornment, Stack, Menu, MenuItem, Checkbox,
-  FormControlLabel, Typography, Skeleton, alpha, useTheme, Button,
+  FormControlLabel, Typography, Skeleton, alpha, useTheme, useMediaQuery,
 } from '@mui/material';
 import SearchIcon       from '@mui/icons-material/Search';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -17,32 +17,11 @@ import { statusColor } from '../../utils/formatters';
 /* ── empty state ─────────────────────────────────────── */
 function EmptyState() {
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        py: 8,
-        gap: 1.5,
-      }}
-    >
-      <Box
-        sx={{
-          width: 64,
-          height: 64,
-          borderRadius: 4,
-          bgcolor: 'action.hover',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          mb: 0.5,
-        }}
-      >
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8, gap: 1.5 }}>
+      <Box sx={{ width: 64, height: 64, borderRadius: 4, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5 }}>
         <TableRowsIcon sx={{ fontSize: 32, color: 'text.disabled' }} />
       </Box>
-      <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
-        No records found
-      </Typography>
+      <Typography variant="subtitle2" fontWeight={600} color="text.secondary">No records found</Typography>
       <Typography variant="body2" color="text.disabled" textAlign="center" maxWidth={300}>
         Try adjusting the search or filter to find what you're looking for.
       </Typography>
@@ -54,23 +33,81 @@ function EmptyState() {
 function ToolBtn({ title, onClick, children, color }) {
   return (
     <Tooltip title={title} arrow>
-      <IconButton
-        size="small"
-        onClick={onClick}
-        sx={{
-          width: 30,
-          height: 30,
-          borderRadius: '8px',
-          color: color || 'text.secondary',
-          border: 1,
-          borderColor: 'divider',
-          '&:hover': { bgcolor: 'action.hover', borderColor: 'text.disabled' },
-          transition: 'all 0.15s ease',
-        }}
-      >
+      <IconButton size="small" onClick={onClick} sx={{
+        width: 30, height: 30, borderRadius: '8px', color: color || 'text.secondary',
+        border: 1, borderColor: 'divider',
+        '&:hover': { bgcolor: 'action.hover', borderColor: 'text.disabled' },
+        transition: 'all 0.15s ease',
+      }}>
         {children}
       </IconButton>
     </Tooltip>
+  );
+}
+
+/* ── mobile card for one row ─────────────────────────── */
+function MobileCard({ row, idx, page, rowsPerPage, visibleColumns, actions, theme }) {
+  const isDark = theme.palette.mode === 'dark';
+  const statusCol = visibleColumns.find(c => c.type === 'status');
+  const otherCols  = visibleColumns.filter(c => c.type !== 'status');
+
+  const renderCellValue = (col, row) => {
+    if (col.render) return col.render(row[col.key], row);
+    if (col.type === 'currency')
+      return <Typography variant="body2" fontWeight={600}>₹{Number(row[col.key] || 0).toLocaleString('en-IN')}</Typography>;
+    return (
+      <Typography variant="body2" fontWeight={500} color="text.primary"
+        sx={{ wordBreak: 'break-word', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {String(row[col.key] ?? '—')}
+      </Typography>
+    );
+  };
+
+  return (
+    <Paper elevation={0} sx={{
+      border: 1, borderColor: 'divider', borderRadius: 2, p: 1.5,
+      bgcolor: isDark ? 'background.paper' : '#fff',
+      transition: 'box-shadow 0.15s ease',
+      '&:hover': { boxShadow: '0 2px 12px rgba(0,0,0,0.08)' },
+    }}>
+      {/* Card header: row # | status chip */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
+        <Typography variant="caption" color="text.disabled" fontWeight={700}
+          sx={{ bgcolor: isDark ? 'grey.800' : 'grey.100', px: 1, py: 0.25, borderRadius: 1, fontSize: '0.68rem' }}>
+          # {page * rowsPerPage + idx + 1}
+        </Typography>
+        {statusCol && row[statusCol.key] && (
+          <Chip
+            label={row[statusCol.key]}
+            size="small"
+            color={statusColor(row[statusCol.key])}
+            sx={{ fontWeight: 600, fontSize: '0.68rem', height: 22 }}
+          />
+        )}
+      </Box>
+
+      {/* Data fields — 2 columns grid */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25, mb: actions ? 1.25 : 0 }}>
+        {otherCols.map(col => (
+          <Box key={col.key} sx={{ minWidth: 0 }}>
+            <Typography variant="caption" color="text.disabled" fontWeight={700}
+              sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 0.25 }}>
+              {col.label}
+            </Typography>
+            <Box sx={{ overflow: 'hidden' }}>
+              {renderCellValue(col, row)}
+            </Box>
+          </Box>
+        ))}
+      </Box>
+
+      {/* Action buttons */}
+      {actions && (
+        <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', pt: 1.25, borderTop: 1, borderColor: 'divider', mt: 0.5 }}>
+          {actions(row)}
+        </Box>
+      )}
+    </Paper>
   );
 }
 
@@ -84,19 +121,19 @@ export default function DataTable({
   actions,
   density = 'medium',
 }) {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
+  const theme    = useTheme();
+  const isDark   = theme.palette.mode === 'dark';
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const [order, setOrder]           = useState('desc');
-  const [orderBy, setOrderBy]       = useState(columns[0]?.key || '');
-  const [page, setPage]             = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [search, setSearch]         = useState('');
-  const [visibleCols, setVisibleCols] = useState(() => new Set(columns.map((c) => c.key)));
+  const [order, setOrder]               = useState('desc');
+  const [orderBy, setOrderBy]           = useState(columns[0]?.key || '');
+  const [page, setPage]                 = useState(0);
+  const [rowsPerPage, setRowsPerPage]   = useState(10);
+  const [search, setSearch]             = useState('');
+  const [visibleCols, setVisibleCols]   = useState(() => new Set(columns.map((c) => c.key)));
   const [colMenuAnchor, setColMenuAnchor] = useState(null);
   const prevColKeysRef = useRef(columns.map((c) => c.key).join(','));
 
-  // Re-sync visible columns when the columns prop changes (e.g. tab switch)
   useEffect(() => {
     const newKeys = columns.map((c) => c.key).join(',');
     if (newKeys !== prevColKeysRef.current) {
@@ -142,33 +179,16 @@ export default function DataTable({
 
   /* ─────────────────────────────────────────────────── */
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        borderRadius: '12px',
-        border: 1,
-        borderColor: 'divider',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
+    <Paper elevation={0} sx={{ borderRadius: '12px', border: 1, borderColor: 'divider', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
       {/* ── Toolbar ── */}
-      <Box
-        sx={{
-          px: 2,
-          py: 1,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          flexWrap: 'wrap',
-          borderBottom: 1,
-          borderColor: 'divider',
-          bgcolor: isDark ? 'rgba(241,245,249,.02)' : '#fafafa',
-          minHeight: 50,
-        }}
-      >
-        {/* Title + Count */}
+      <Box sx={{
+        px: { xs: 1.5, sm: 2 }, py: 1,
+        display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap',
+        borderBottom: 1, borderColor: 'divider',
+        bgcolor: isDark ? 'rgba(241,245,249,.02)' : '#fafafa',
+        minHeight: 50,
+      }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mr: 1 }}>
           <Typography variant="body2" fontWeight={700} color="text.primary" sx={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
             {title}
@@ -178,19 +198,10 @@ export default function DataTable({
           </Typography>
         </Box>
 
-        {/* Search */}
         <TextField
-          size="small"
-          placeholder="Search records…"
-          value={search}
+          size="small" placeholder="Search records…" value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
-              </InputAdornment>
-            ),
-          }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 14, color: 'text.disabled' }} /></InputAdornment> }}
           sx={{
             width: { xs: '100%', sm: 200 },
             '& .MuiOutlinedInput-root': { height: 34, borderRadius: '8px', fontSize: '0.8rem' },
@@ -198,33 +209,29 @@ export default function DataTable({
           }}
         />
 
-        {/* spacer */}
         <Box sx={{ flex: 1 }} />
 
-        {/* Tool buttons */}
-        <Stack direction="row" spacing={0.5} divider={<Box sx={{ width: 1, bgcolor: 'divider', alignSelf: 'stretch' }} />}>
-          <Stack direction="row" spacing={0.5}>
-            <ToolBtn title="Export Excel" color="#059669" onClick={() => exportToExcel(filtered, exportCols, title)}>
-              <FileDownloadIcon sx={{ fontSize: 15 }} />
-            </ToolBtn>
-            <ToolBtn title="Export PDF" color="#dc2626" onClick={() => exportToPDF(filtered, exportCols, title, title)}>
-              <PictureAsPdfIcon sx={{ fontSize: 15 }} />
-            </ToolBtn>
-            <ToolBtn title="Print" onClick={() => printTable(filtered, exportCols, title)}>
-              <PrintIcon sx={{ fontSize: 15 }} />
-            </ToolBtn>
+        <Stack direction="row" spacing={0.5}>
+          <ToolBtn title="Export Excel" color="#059669" onClick={() => exportToExcel(filtered, exportCols, title)}>
+            <FileDownloadIcon sx={{ fontSize: 15 }} />
+          </ToolBtn>
+          <ToolBtn title="Export PDF" color="#dc2626" onClick={() => exportToPDF(filtered, exportCols, title, title)}>
+            <PictureAsPdfIcon sx={{ fontSize: 15 }} />
+          </ToolBtn>
+          <ToolBtn title="Print" onClick={() => printTable(filtered, exportCols, title)}>
+            <PrintIcon sx={{ fontSize: 15 }} />
+          </ToolBtn>
+          {!isMobile && (
             <ToolBtn title="Toggle columns" onClick={(e) => setColMenuAnchor(e.currentTarget)}>
               <ViewColumnIcon sx={{ fontSize: 15 }} />
             </ToolBtn>
-          </Stack>
+          )}
         </Stack>
       </Box>
 
-      {/* Column toggle menu */}
+      {/* Column toggle menu (desktop only) */}
       <Menu
-        anchorEl={colMenuAnchor}
-        open={Boolean(colMenuAnchor)}
-        onClose={() => setColMenuAnchor(null)}
+        anchorEl={colMenuAnchor} open={Boolean(colMenuAnchor)} onClose={() => setColMenuAnchor(null)}
         PaperProps={{ sx: { minWidth: 180, py: 0.5 } }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
@@ -234,16 +241,8 @@ export default function DataTable({
           Columns
         </Typography>
         {columns.map((c) => (
-          <MenuItem
-            key={c.key}
-            dense
-            onClick={() =>
-              setVisibleCols((prev) => {
-                const next = new Set(prev);
-                next.has(c.key) ? next.delete(c.key) : next.add(c.key);
-                return next;
-              })
-            }
+          <MenuItem key={c.key} dense
+            onClick={() => setVisibleCols((prev) => { const next = new Set(prev); next.has(c.key) ? next.delete(c.key) : next.add(c.key); return next; })}
             sx={{ py: 0.5, mx: 0.5, borderRadius: 1 }}
           >
             <FormControlLabel
@@ -255,147 +254,88 @@ export default function DataTable({
         ))}
       </Menu>
 
-      {/* ── Table ── */}
-      <TableContainer sx={{ flex: 1, maxHeight: 520, overflowX: 'auto' }}>
-        <Table
-          stickyHeader
-          size={density === 'compact' ? 'small' : 'medium'}
-          sx={{ minWidth: 600 }}
-        >
-          <TableHead>
-            <TableRow>
-              {/* Index col */}
-              <TableCell
-                sx={{
-                  width: 48,
-                  minWidth: 48,
-                  maxWidth: 48,
-                  py: '10px',
-                  px: 2,
-                  position: 'sticky',
-                  left: 0,
-                  bgcolor: isDark ? 'grey.900' : 'grey.100',
-                  zIndex: 5,
-                }}
-              >
-                #
-              </TableCell>
+      {/* ── Mobile: Card View ── */}
+      {isMobile && (
+        <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25, overflowY: 'auto', maxHeight: 620 }}>
+          {loading && Array.from({ length: 4 }).map((_, i) => (
+            <Paper key={i} elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 2 }}>
+              <Skeleton animation="wave" height={18} sx={{ mb: 1.5 }} />
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                {Array.from({ length: 6 }).map((_, j) => <Skeleton key={j} animation="wave" height={32} />)}
+              </Box>
+            </Paper>
+          ))}
+          {!loading && paginated.length === 0 && <EmptyState />}
+          {!loading && paginated.map((row, idx) => (
+            <MobileCard
+              key={row.id || idx}
+              row={row} idx={idx} page={page} rowsPerPage={rowsPerPage}
+              visibleColumns={visibleColumns} actions={actions} theme={theme}
+            />
+          ))}
+        </Box>
+      )}
 
-              {actions && (
-                <TableCell
-                  align="center"
-                  sx={{ 
-                    width: 140, minWidth: 140, maxWidth: 140, py: '10px', px: 2, 
-                    position: 'sticky', left: 48, 
-                    bgcolor: isDark ? 'grey.900' : 'grey.100', 
-                    zIndex: 4,
-                    boxShadow: '2px 0 5px rgba(0,0,0,0.05)'
-                  }}
-                >
-                  Actions
+      {/* ── Desktop: Table View ── */}
+      {!isMobile && (
+        <TableContainer sx={{ flex: 1, maxHeight: 520, overflowX: 'auto' }}>
+          <Table stickyHeader size={density === 'compact' ? 'small' : 'medium'} sx={{ minWidth: 600 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ width: 48, minWidth: 48, maxWidth: 48, py: '10px', px: 2, position: 'sticky', left: 0, bgcolor: isDark ? 'grey.900' : 'grey.100', zIndex: 5 }}>
+                  #
                 </TableCell>
-              )}
+                {actions && (
+                  <TableCell align="center" sx={{ width: 140, minWidth: 140, maxWidth: 140, py: '10px', px: 2, position: 'sticky', left: 48, bgcolor: isDark ? 'grey.900' : 'grey.100', zIndex: 4, boxShadow: '2px 0 5px rgba(0,0,0,0.05)' }}>
+                    Actions
+                  </TableCell>
+                )}
+                {visibleColumns.map((col) => (
+                  <TableCell key={col.key} sx={{ minWidth: col.minWidth || 100, py: '10px', px: 2, whiteSpace: 'nowrap', zIndex: 3 }}>
+                    {col.sortable !== false ? (
+                      <TableSortLabel
+                        active={orderBy === col.key}
+                        direction={orderBy === col.key ? order : 'asc'}
+                        onClick={() => handleSort(col.key)}
+                        sx={{ '& .MuiTableSortLabel-icon': { fontSize: 14 }, '&.Mui-active': { color: 'primary.main' } }}
+                      >
+                        {col.label}
+                      </TableSortLabel>
+                    ) : col.label}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
 
-              {visibleColumns.map((col) => (
-                <TableCell
-                  key={col.key}
-                  sx={{
-                    minWidth: col.minWidth || 100,
-                    py: '10px',
-                    px: 2,
-                    whiteSpace: 'nowrap',
-                    zIndex: 3,
-                  }}
-                >
-                  {col.sortable !== false ? (
-                    <TableSortLabel
-                      active={orderBy === col.key}
-                      direction={orderBy === col.key ? order : 'asc'}
-                      onClick={() => handleSort(col.key)}
-                      sx={{
-                        '& .MuiTableSortLabel-icon': { fontSize: 14 },
-                        '&.Mui-active': { color: 'primary.main' },
-                      }}
-                    >
-                      {col.label}
-                    </TableSortLabel>
-                  ) : (
-                    col.label
-                  )}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-
-          <TableBody>
-            {/* Loading */}
-            {loading &&
-              Array.from({ length: 6 }).map((_, i) => (
+            <TableBody>
+              {loading && Array.from({ length: 6 }).map((_, i) => (
                 <TableRow key={i}>
                   {Array.from({ length: visibleColumns.length + (actions ? 2 : 1) }).map((_, j) => (
-                    <TableCell key={j} sx={{ py: rowPy }}>
-                      <Skeleton animation="wave" height={20} sx={{ borderRadius: 1 }} />
-                    </TableCell>
+                    <TableCell key={j} sx={{ py: rowPy }}><Skeleton animation="wave" height={20} sx={{ borderRadius: 1 }} /></TableCell>
                   ))}
                 </TableRow>
               ))}
 
-            {/* Empty */}
-            {!loading && paginated.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={visibleColumns.length + (actions ? 2 : 1)}
-                  sx={{ border: 0, p: 0 }}
-                >
-                  <EmptyState />
-                </TableCell>
-              </TableRow>
-            )}
+              {!loading && paginated.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={visibleColumns.length + (actions ? 2 : 1)} sx={{ border: 0, p: 0 }}>
+                    <EmptyState />
+                  </TableCell>
+                </TableRow>
+              )}
 
-            {/* Data rows */}
-            {!loading &&
-              paginated.map((row, idx) => (
-                <TableRow
-                  key={row.id || idx}
-                  hover
-                  sx={{
-                    transition: 'background 0.1s ease',
-                    '&:hover': { bgcolor: alpha(theme.palette.primary.main, isDark ? 0.05 : 0.03) },
-                    '&:last-child td': { borderBottom: 0 },
-                  }}
-                >
-                  {/* Row number */}
-                  <TableCell
-                    sx={{
-                      py: rowPy,
-                      px: 2,
-                      color: 'text.disabled',
-                      fontSize: '0.75rem',
-                      fontWeight: 500,
-                      width: 48,
-                      minWidth: 48,
-                      maxWidth: 48,
-                      position: 'sticky',
-                      left: 0,
-                      bgcolor: isDark ? '#1e293b' : '#fff',
-                      zIndex: 3,
-                    }}
-                  >
+              {!loading && paginated.map((row, idx) => (
+                <TableRow key={row.id || idx} hover sx={{
+                  transition: 'background 0.1s ease',
+                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, isDark ? 0.05 : 0.03) },
+                  '&:last-child td': { borderBottom: 0 },
+                }}>
+                  <TableCell sx={{ py: rowPy, px: 2, color: 'text.disabled', fontSize: '0.75rem', fontWeight: 500, width: 48, minWidth: 48, maxWidth: 48, position: 'sticky', left: 0, bgcolor: isDark ? '#1e293b' : '#fff', zIndex: 3 }}>
                     {page * rowsPerPage + idx + 1}
                   </TableCell>
 
                   {actions && (
-                    <TableCell 
-                      align="center" 
-                      sx={{ 
-                        py: rowPy, px: 1.5,
-                        width: 140, minWidth: 140, maxWidth: 140,
-                        position: 'sticky', left: 48,
-                        bgcolor: isDark ? '#1e293b' : '#fff',
-                        zIndex: 2,
-                        boxShadow: '2px 0 5px rgba(0,0,0,0.02)'
-                      }}
-                    >
+                    <TableCell align="center" sx={{ py: rowPy, px: 1.5, width: 140, minWidth: 140, maxWidth: 140, position: 'sticky', left: 48, bgcolor: isDark ? '#1e293b' : '#fff', zIndex: 2, boxShadow: '2px 0 5px rgba(0,0,0,0.02)' }}>
                       <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center', alignItems: 'center' }}>
                         {actions(row)}
                       </Stack>
@@ -403,44 +343,28 @@ export default function DataTable({
                   )}
 
                   {visibleColumns.map((col) => (
-                    <TableCell
-                      key={col.key}
-                      sx={{
-                        py: rowPy,
-                        px: 2,
-                        maxWidth: col.maxWidth || 220,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: col.wrap ? 'normal' : 'nowrap',
-                      }}
-                    >
+                    <TableCell key={col.key} sx={{ py: rowPy, px: 2, maxWidth: col.maxWidth || 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: col.wrap ? 'normal' : 'nowrap' }}>
                       {col.render ? (
                         col.render(row[col.key], row)
                       ) : col.type === 'status' ? (
-                        <Chip
-                          label={row[col.key]}
-                          size="small"
-                          color={statusColor(row[col.key])}
-                          sx={{ fontWeight: 600 }}
-                        />
+                        <Chip label={row[col.key]} size="small" color={statusColor(row[col.key])} sx={{ fontWeight: 600 }} />
                       ) : col.type === 'currency' ? (
                         <Typography variant="body2" fontWeight={600} color="text.primary">
                           ₹{Number(row[col.key] || 0).toLocaleString('en-IN')}
                         </Typography>
                       ) : (
-                        <Typography variant="body2" color="text.primary">
-                          {String(row[col.key] ?? '')}
-                        </Typography>
+                        <Typography variant="body2" color="text.primary">{String(row[col.key] ?? '')}</Typography>
                       )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
-      {/* ── Pagination ── */}
+      {/* ── Pagination (always) ── */}
       <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
         <TablePagination
           component="div"
@@ -449,13 +373,11 @@ export default function DataTable({
           onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value)); setPage(0); }}
-          rowsPerPageOptions={[5, 10, 25, 50, 100]}
+          rowsPerPageOptions={isMobile ? [5, 10, 25] : [5, 10, 25, 50, 100]}
+          labelRowsPerPage={isMobile ? '' : 'Rows per page:'}
           sx={{
-            '& .MuiTablePagination-toolbar': { minHeight: 48, px: 2 },
-            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-              fontSize: '0.8rem',
-              color: 'text.secondary',
-            },
+            '& .MuiTablePagination-toolbar': { minHeight: 48, px: { xs: 1, sm: 2 } },
+            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: '0.8rem', color: 'text.secondary' },
           }}
         />
       </Box>

@@ -91,8 +91,18 @@ export default function Topbar({ onMenuClick, sidebarOpen }) {
       >
 
 
+        {/* Hamburger — mobile only */}
+        <IconButton
+          onClick={onMenuClick}
+          edge="start"
+          size="small"
+          sx={{ display: { md: 'none' }, color: 'text.secondary', mr: 0.5 }}
+        >
+          <MenuIcon sx={{ fontSize: 22 }} />
+        </IconButton>
+
         {/* Page title */}
-        <Box sx={{ flex: 1, minWidth: 0, ml: 1 }}>
+        <Box sx={{ flex: 1, minWidth: 0, ml: { xs: 0, md: 1 } }}>
           <Typography variant="subtitle1" fontWeight={700} noWrap sx={{ lineHeight: 1.2 }}>
             {pageInfo.label}
           </Typography>
